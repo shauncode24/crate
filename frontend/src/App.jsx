@@ -7,6 +7,8 @@ import {
   clearTokens,
 } from './auth/spotifyAuth.js';
 
+import SongsInput from './components/songsInput.jsx';
+
 export default function App() {
   const [status, setStatus] = useState('checking');
   const [profile, setProfile] = useState(null);
@@ -53,6 +55,9 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'sans-serif', textAlign: 'center', marginTop: '4rem' }}>
+
+      <SongsInput />
+
       <h1>crate</h1>
       {status === 'checking' && <p>checking login state…</p>}
       {status === 'logged-out' && <button onClick={loginWithSpotify}>Log in with Spotify</button>}

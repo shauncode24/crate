@@ -1,0 +1,271 @@
+.playground {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: 0;
+}
+
+/* ── Header ── */
+
+.pg-header {
+  padding: 40px 40px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+}
+
+.pg-header h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+  letter-spacing: -0.8px;
+}
+
+.pg-subtitle {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+/* ── Sample buttons ── */
+
+.pg-samples {
+  display: flex;
+  gap: 8px;
+  padding: 16px 40px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.sample-btn {
+  font: 13px/1 var(--mono);
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.sample-btn:hover {
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.sample-btn--active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* ── Two-column body ── */
+
+.pg-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .pg-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Panes ── */
+
+.pg-pane {
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pg-pane + .pg-pane {
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .pg-pane + .pg-pane {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .pg-pane {
+    padding: 20px;
+  }
+
+  .pg-header {
+    padding: 24px 20px 20px;
+  }
+
+  .pg-samples {
+    padding: 12px 20px;
+  }
+}
+
+.pane-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.6;
+  display: block;
+}
+
+.pane-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.pane-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.5;
+  margin-left: auto;
+}
+
+.pane-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.45;
+  margin: 0;
+}
+
+/* ── Textarea ── */
+
+.pg-textarea {
+  flex: 1;
+  min-height: 220px;
+  font: 14px/160% var(--mono);
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text-h);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.pg-textarea:focus {
+  border-color: var(--accent-border);
+}
+
+/* ── Result list ── */
+
+.empty-state {
+  color: var(--text);
+  opacity: 0.45;
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+.result-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.result-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+
+.result-item--flagged {
+  border-color: color-mix(in srgb, var(--accent-border) 60%, var(--border));
+}
+
+.result-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px 10px;
+}
+
+.result-raw {
+  font: 12px/1.4 var(--mono);
+  color: var(--text);
+  opacity: 0.45;
+  padding: 6px 14px 10px;
+  border-top: 1px solid var(--border);
+  word-break: break-all;
+}
+
+/* ── Badge ── */
+
+.badge {
+  font: 11px/1 var(--mono);
+  letter-spacing: 0.04em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.badge--split {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+
+.badge--unsplit {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ── Fields ── */
+
+.result-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.result-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.field-label {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.45;
+  flex-shrink: 0;
+  width: 36px;
+  text-align: right;
+}
+
+.field-value {
+  font: 14px/1.4 var(--sans);
+  color: var(--text-h);
+  word-break: break-word;
+}
+
+.field-value--muted {
+  color: var(--text);
+  opacity: 0.5;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.result-field--note .field-label {
+  width: 36px;
+}
