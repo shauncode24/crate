@@ -1,6 +1,3 @@
-// frontend/src/extraction/parseHeuristic.js
-//
-//
 // Turns raw pasted text into a clean list of ParsedSong objects without AI.
 // Handles the common structured cases so Phase 3 (AI) only has to deal with
 // genuinely ambiguous lines.
@@ -42,9 +39,9 @@ const SMART_QUOTE_MAP = {
 // Each entry: { re, label } where re captures (title)(delimiter)(artist).
 // We use a split-based approach rather than capture groups for flexibility.
 const DELIMITERS = [
-  { label: '-',  re: /\s+[-\u2013]\s+/ },     // " - " or " – "
-  { label: '—',  re: /\s*\u2014\s*/  },        // em dash (may have no spaces)
-  { label: 'by', re: /\s+by\s+/i      },       // " by " (case-insensitive)
+  { label: '-',  re: /\s+[-\u2013]\s+/, titleMustBeShaped: false },  // " - " or " – "
+  { label: '—',  re: /\s*\u2014\s*/,    titleMustBeShaped: false },  // em dash
+  { label: 'by', re: /\s+by\s+/i,       titleMustBeShaped: true  },  // " by " — only accept if left side looks like a title, not a sentence
 ];
 
 // ---------------------------------------------------------------------------
@@ -89,12 +86,43 @@ function isSaneSide(s) {
   return true;
 }
 
+// Prose signals that disqualify a string from being a song title.
+// Used to reject false-positive " by " splits like:
+//   "honestly can't stop listening to Stick Season by Noah Kahan"
+//   ↑ left side is a sentence, not a title — reject the split entirely.
+const PROSE_TITLE_SIGNALS = [
+  /\bright\s+now\b/i,
+  /\blately\b/i,
+  /\bhonestly\b/i,
+  /\bbeen\b/i,
+  /\breally\b/i,
+  /\bso\s+into\b/i,
+  /\bon\s+repeat\b/i,
+  /\bobsessed\b/i,
+  /\bcan'?t\s+stop\b/i,
+  /\bkeep\s+(listening|playing|coming\s+back)\b/i,
+  /\blove\s+(this|how)\b/i,
+  /\blistening\s+to\b/i,
+  /\bkick\b/i,
+];
+
+/**
+ * Returns false if the string looks like a sentence rather than a song title.
+ * Only consulted for delimiters marked titleMustBeShaped: true (i.e. " by ").
+ */
+function isTitleShaped(s) {
+  const words = s.trim().split(/\s+/);
+  if (words.length > 6) return false;
+  if (PROSE_TITLE_SIGNALS.some((re) => re.test(s))) return false;
+  return true;
+}
+
 /**
  * Attempt to split `cleaned` into [title, artist] using DELIMITERS in order.
  * Returns { title, artist, delimiterFound } or { title: cleaned, artist: null, delimiterFound: false }.
  */
 function splitTitleArtist(cleaned) {
-  for (const { re } of DELIMITERS) {
+  for (const { re, titleMustBeShaped } of DELIMITERS) {
     // Split on first occurrence only
     const idx = cleaned.search(re);
     if (idx === -1) continue;
@@ -107,9 +135,12 @@ function splitTitleArtist(cleaned) {
     const left = cleaned.slice(0, delimStart).trim();
     const right = cleaned.slice(delimEnd).trim();
 
-    if (isSaneSide(left) && isSaneSide(right)) {
-      return { title: left, artist: right, delimiterFound: true };
-    }
+    if (!isSaneSide(left) || !isSaneSide(right)) continue;
+
+    // For " by " splits, reject if the left side reads as a sentence.
+    if (titleMustBeShaped && !isTitleShaped(left)) continue;
+
+    return { title: left, artist: right, delimiterFound: true };
   }
 
   // No usable delimiter found — return the whole cleaned string as title
