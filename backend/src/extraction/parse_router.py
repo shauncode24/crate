@@ -14,8 +14,8 @@ class ParseLLMRequest(BaseModel):
     def not_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("raw_text must not be empty.")
-        if len(v) > 2000:
-            raise ValueError("raw_text must be 2000 characters or fewer.")
+        if len(v) > 20000:
+            raise ValueError("raw_text must be 20000 characters or fewer.")
         return v
 
 

@@ -57,7 +57,7 @@ async def extract_with_llm(raw_text: str) -> list[dict]:
 
     url = _GEMINI_URL_TEMPLATE.format(model=_MODEL, api_key=api_key)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             url,
             headers={

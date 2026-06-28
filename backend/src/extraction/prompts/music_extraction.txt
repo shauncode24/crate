@@ -8,7 +8,8 @@ Rules:
 - If the text mentions multiple songs, return one object per song.
 - If the text contains no song references at all, return an empty array: []
 - Never invent songs or artists you are not confident about. If unsure whether something is a real song, include it with artist: null rather than guessing.
-- Do not include duplicate entries for the same song.
+- Never add an artist that does not appear explicitly in the input text. If the input does not mention an artist for a song, always return artist: null, even if you know who made the song.
+- Treat each line as a separate entry. Do not deduplicate. Two lines that share a base title but differ in any way — (Live), (Acoustic), (Female Version), (Male Version), (Reprise), (Instrumental), (Cover), (Unplugged), (Remix), (Piano Version), or any other qualifier — are different entries and must both appear in the output. Preserve qualifiers in parentheses exactly as written.
 
 Output format (and nothing else):
 [{"title": "Song Title", "artist": "Artist Name or null"}]
