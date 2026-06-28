@@ -297,7 +297,7 @@
 
 .candidate-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 9px 12px;
@@ -309,23 +309,6 @@
 
 .candidate-card:hover {
   border-color: var(--accent-border);
-}
-
-.candidate-body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.candidate-image {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 1px solid var(--border);
 }
 
 .candidate-main {
@@ -477,4 +460,252 @@
     flex-wrap: wrap;
     justify-content: flex-end;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Phase 5 — Score breakdown additions
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Score colour tokens ── */
+
+:root {
+  --score-title:   #6366f1;   /* indigo  — title similarity */
+  --score-artist:  #0ea5e9;   /* sky     — artist match */
+  --score-album:   #10b981;   /* emerald — album signal */
+  --score-pop:     #f59e0b;   /* amber   — popularity */
+  --score-penalty: #ef4444;   /* red     — modifier penalty */
+}
+
+/* ── Candidate card: two-row layout ── */
+
+.candidate-card {
+  flex-direction: column;   /* override Phase 4's row layout */
+  gap: 0;
+  padding: 0;
+}
+
+.candidate-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px 8px;
+}
+
+.candidate-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.candidate-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.candidate-card--top {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
+/* ── Score summary row (the clickable trigger) ── */
+
+.score-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--code-bg);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+  border-radius: 0 0 6px 6px;
+}
+
+.score-summary:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--code-bg));
+}
+
+.score-rank {
+  font: 10px/1 var(--mono);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.score-final {
+  font: 600 13px/1 var(--mono);
+  color: var(--text-h);
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+.score-band {
+  font: 11px/1 var(--mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.score-band--strong { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+.score-band--likely { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+.score-band--weak   { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.score-band--poor   { background: rgba(239, 68, 68, 0.12);  color: #ef4444; }
+
+@media (prefers-color-scheme: dark) {
+  .score-band--strong { color: #818cf8; }
+  .score-band--likely { color: #38bdf8; }
+  .score-band--weak   { color: #fbbf24; }
+  .score-band--poor   { color: #fca5a5; }
+}
+
+/* ── Stacked bar ── */
+
+.score-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+
+.score-bar__seg {
+  height: 100%;
+  transition: width 0.25s ease;
+}
+
+.score-bar__penalty {
+  position: absolute;
+  right: 0;
+  height: 100%;
+  background: var(--score-penalty);
+  opacity: 0.7;
+}
+
+.score-chevron {
+  font-size: 9px;
+  color: var(--text);
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+/* ── Detail table ── */
+
+.score-table {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  border-collapse: collapse;
+  background: var(--bg);
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.score-table td {
+  padding: 5px 10px;
+  vertical-align: middle;
+}
+
+.score-row__label {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.6;
+  text-align: right;
+  width: 60px;
+  white-space: nowrap;
+}
+
+.score-row__bar-cell {
+  width: 100%;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.score-row__track {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-row__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.25s ease;
+  min-width: 2px;
+}
+
+.score-row__val {
+  font: 600 11px/1 var(--mono);
+  color: var(--text-h);
+  text-align: right;
+  white-space: nowrap;
+  width: 64px;
+}
+
+.score-row__max {
+  font-weight: 400;
+  opacity: 0.45;
+}
+
+.score-row__val--neg {
+  color: var(--score-penalty);
+}
+
+.score-row--penalty td {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.score-row--total {
+  border-top: 1px solid var(--border);
+}
+
+.score-row--total .score-row__label {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.score-row--total .score-row__val {
+  font-size: 13px;
+}
+
+/* ── Top-score chip in song row header ── */
+
+.song-row__topscore {
+  font: 600 11px/1 var(--mono);
+  color: var(--text-h);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+/* ── Legend swatches ── */
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-swatch--penalty {
+  background: var(--score-penalty);
 }
