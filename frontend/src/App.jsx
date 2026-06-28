@@ -7,12 +7,20 @@ import {
   clearTokens,
 } from './auth/spotifyAuth.js';
 
-import SongsInput from './components/songsInput.jsx';
+import SongsInput        from './components/songsInput.jsx';
+import ResolverPlayground from './components/resolverPlayground.jsx';
+import './App.css';
+
+const TABS = [
+  { id: 'parser',   label: 'Parser'   },
+  { id: 'resolver', label: 'Resolver' },
+];
 
 export default function App() {
-  const [status, setStatus] = useState('checking');
-  const [profile, setProfile] = useState(null);
-  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('parser');
+  const [authStatus, setAuthStatus] = useState('checking'); // checking | logged-in | logged-out | error
+  const [profile, setProfile]       = useState(null);
+  const [error, setError]           = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -24,10 +32,10 @@ export default function App() {
             return;
           }
         }
-        setStatus(isLoggedIn() ? 'logged-in' : 'logged-out');
+        setAuthStatus(isLoggedIn() ? 'logged-in' : 'logged-out');
       } catch (err) {
         setError(err.message);
-        setStatus('error');
+        setAuthStatus('error');
       }
     }
     init();
@@ -50,26 +58,65 @@ export default function App() {
   function handleLogout() {
     clearTokens();
     setProfile(null);
-    setStatus('logged-out');
+    setAuthStatus('logged-out');
   }
 
+  const loggedIn = authStatus === 'logged-in';
+
   return (
-    <div style={{ fontFamily: 'sans-serif', textAlign: 'center', marginTop: '4rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-      <SongsInput />
+      {/* ── Top nav ── */}
+      <nav className="app-nav">
+        <div className="app-nav__tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              className={`app-nav__tab ${activeTab === tab.id ? 'app-nav__tab--active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <h1>crate</h1>
-      {status === 'checking' && <p>checking login state…</p>}
-      {status === 'logged-out' && <button onClick={loginWithSpotify}>Log in with Spotify</button>}
-      {status === 'logged-in' && (
-        <>
-          <p>You're logged in. Prove the token actually works:</p>
-          <button onClick={handleFetchProfile}>Fetch my Spotify profile</button>
-          <button onClick={handleLogout} style={{ marginLeft: '0.5rem' }}>Log out</button>
-        </>
+        <div className="app-nav__auth">
+          {authStatus === 'checking' && (
+            <span className="app-nav__auth-hint">checking…</span>
+          )}
+          {authStatus === 'logged-out' && (
+            <button className="app-nav__auth-btn" onClick={loginWithSpotify}>
+              Log in with Spotify
+            </button>
+          )}
+          {authStatus === 'logged-in' && (
+            <>
+              <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleFetchProfile}>
+                {profile ? `✓ ${profile.display_name}` : 'Verify token'}
+              </button>
+              <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleLogout}>
+                Log out
+              </button>
+            </>
+          )}
+          {authStatus === 'error' && (
+            <span className="app-nav__auth-hint app-nav__auth-hint--error">{error}</span>
+          )}
+        </div>
+      </nav>
+
+      {/* ── Tab content ── */}
+      <main>
+        {activeTab === 'parser'   && <SongsInput />}
+        {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={loggedIn} />}
+      </main>
+
+      {/* Debug profile dump (dev only) */}
+      {profile && (
+        <pre style={{ textAlign: 'left', display: 'inline-block', margin: '1rem 40px', fontSize: 12 }}>
+          {JSON.stringify(profile, null, 2)}
+        </pre>
       )}
-      {profile && <pre style={{ textAlign: 'left', display: 'inline-block', marginTop: '1rem' }}>{JSON.stringify(profile, null, 2)}</pre>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 }

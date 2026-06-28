@@ -1,0 +1,480 @@
+/* resolverPlayground.css — extends the same CSS-var design system as songsInput.css */
+
+.rp {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: 0;
+}
+
+/* ── Header ── */
+
+.rp-header {
+  padding: 40px 40px 24px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.rp-header h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+  letter-spacing: -0.8px;
+}
+
+.rp-subtitle {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+/* ── Sections ── */
+
+.rp-section {
+  padding: 28px 40px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rp-step-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.rp-step-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.rp-song-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  margin-left: auto;
+}
+
+/* ── Extract row ── */
+
+.rp-extract-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rp-textarea {
+  flex: 1;
+  min-height: 100px;
+  font: 14px/160% var(--mono);
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text-h);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.rp-textarea:focus {
+  border-color: var(--accent-border);
+}
+
+.rp-extract-btn {
+  font: 13px/1 var(--mono);
+  padding: 10px 18px;
+  border-radius: 5px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: flex-end;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.rp-extract-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.rp-extract-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rp-error {
+  font: 13px/1.5 var(--mono);
+  color: #dc2626;
+  margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rp-error { color: #fca5a5; }
+}
+
+.rp-empty,
+.rp-login-hint {
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.5;
+  margin: 0;
+  font-family: var(--mono);
+}
+
+/* ── Song list ── */
+
+.rp-song-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Song row ── */
+
+.song-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.song-row:hover {
+  border-color: var(--accent-border);
+}
+
+.song-row__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.song-row__index {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.35;
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.song-row__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.song-row__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-row__artist {
+  font: 12px/1 var(--mono);
+  color: var(--accent);
+}
+
+.song-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.song-row__count {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.5;
+}
+
+.song-row__err {
+  font: 11px/1 var(--mono);
+  color: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .song-row__err { color: #fca5a5; }
+}
+
+.song-row__error-msg {
+  font: 12px/1.4 var(--mono);
+  color: #dc2626;
+  padding: 0 14px 10px 42px;
+  margin: 0;
+  word-break: break-word;
+}
+
+@media (prefers-color-scheme: dark) {
+  .song-row__error-msg { color: #fca5a5; }
+}
+
+/* ── Resolve button ── */
+
+.resolve-btn {
+  font: 12px/1 var(--mono);
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.resolve-btn--idle:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.resolve-btn--loading {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.resolve-btn--done {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.resolve-btn--error {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .resolve-btn--error {
+    border-color: rgba(252, 165, 165, 0.4);
+    color: #fca5a5;
+    background: rgba(252, 165, 165, 0.08);
+  }
+}
+
+/* ── Candidates panel ── */
+
+.candidates-panel {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px 14px 14px;
+  background: var(--code-bg);
+}
+
+.no-candidates {
+  font: 13px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.5;
+  margin: 0;
+}
+
+.candidates-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Candidate card ── */
+
+.candidate-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: border-color 0.12s;
+}
+
+.candidate-card:hover {
+  border-color: var(--accent-border);
+}
+
+.candidate-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.candidate-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.candidate-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.candidate-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-artist {
+  font: 12px/1 var(--mono);
+  color: var(--accent);
+}
+
+.candidate-album {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.5;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.meta-pop,
+.meta-dur {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.55;
+}
+
+/* ── Rung badges ── */
+
+.rung-badge {
+  font: 10px/1 var(--mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.rung-badge--field-qualified {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.rung-badge--plain-combined {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.rung-badge--title-only {
+  background: rgba(249, 115, 22, 0.15);
+  color: #ea580c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .rung-badge--field-qualified {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.25);
+  }
+  .rung-badge--plain-combined {
+    background: rgba(234, 179, 8, 0.12);
+    color: #fbbf24;
+    border-color: rgba(234, 179, 8, 0.25);
+  }
+  .rung-badge--title-only {
+    background: rgba(249, 115, 22, 0.12);
+    color: #fb923c;
+    border-color: rgba(249, 115, 22, 0.25);
+  }
+}
+
+/* ── Flag badges ── */
+
+.flag-badge {
+  font: 10px/1 var(--mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(170, 59, 255, 0.1);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  letter-spacing: 0.04em;
+}
+
+/* ── Legend ── */
+
+.rp-legend {
+  padding: 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .rp-header { padding: 24px 20px 20px; }
+  .rp-section { padding: 20px; }
+  .rp-legend { padding: 20px; }
+
+  .candidate-card {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .candidate-meta {
+    justify-content: flex-start;
+  }
+
+  .song-row__actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
