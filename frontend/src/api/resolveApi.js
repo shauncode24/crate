@@ -182,3 +182,116 @@ export async function commitToPlaylist(initialToken, playlistId, trackUris) {
 
   return { succeededChunks, failedChunks };
 }
+
+/**
+ * Aggregate the session matches, duplicate mappings, and commit transactions
+ * into a structured final import report.
+ *
+ * @param {Array<object>} resolvedMatches - The list of matches confirmed by the user
+ * @param {object} duplicateInfo - { exactTrackIds: string[], nearDuplicateTrackIds: object }
+ * @param {object} commitResult - { succeededChunks: number[], failedChunks: Array<{ index, error }> }
+ * @returns {object} The structured import report
+ */
+export function buildImportReport(resolvedMatches, duplicateInfo, commitResult) {
+  const { exactTrackIds = [], nearDuplicateTrackIds = {} } = duplicateInfo || {};
+  const { succeededChunks = [], failedChunks = [] } = commitResult || {};
+
+  const added = [];
+  const skippedDuplicate = [];
+  const notFound = [];
+  const failed = [];
+
+  let committedIndex = 0;
+  const chunkSize = 100;
+
+  for (let i = 0; i < resolvedMatches.length; i++) {
+    const match = resolvedMatches[i];
+    if (!match) continue;
+
+    const rawText = match.parsedSong?.rawText || match.parsedSong?.title || `Song #${i + 1}`;
+
+    // Not found bucket
+    if (match.status === 'notfound') {
+      notFound.push({ rawText });
+      continue;
+    }
+
+    // Skipped duplicate bucket
+    const isExactDup = match.isDuplicate || (match.chosen && exactTrackIds.includes(match.chosen.id));
+    const isNearDup = match.duplicateWarning || (match.chosen && nearDuplicateTrackIds[match.chosen.id]);
+
+    if (match.status === 'skipped') {
+      if (isExactDup || isNearDup) {
+        let matchedWith = '';
+        if (isNearDup) {
+          matchedWith = match.duplicateWarning 
+            ? match.duplicateWarning.replace('Already in playlist as "', '').replace('"', '')
+            : nearDuplicateTrackIds[match.chosen.id];
+        } else if (match.chosen) {
+          matchedWith = match.chosen.title;
+        }
+
+        skippedDuplicate.push({
+          ...(match.chosen || {}),
+          title: match.parsedSong?.title || (match.chosen && match.chosen.title) || 'Unknown Track',
+          artist: match.parsedSong?.artist || (match.chosen && (match.chosen.artists || match.chosen.artist)) || 'Unknown Artist',
+          matchedWith: matchedWith || 'Exact duplicate'
+        });
+      } else {
+        // Treat manual skips as skippedDuplicate for reconciliation purposes
+        skippedDuplicate.push({
+          ...(match.chosen || {}),
+          title: match.parsedSong?.title || (match.chosen && match.chosen.title) || 'Unknown Track',
+          artist: match.parsedSong?.artist || (match.chosen && (match.chosen.artists || match.chosen.artist)) || 'Unknown Artist',
+          matchedWith: 'Manually skipped'
+        });
+      }
+      continue;
+    }
+
+    // Attempted to commit
+    if (match.chosen && match.chosen.id) {
+      const chunkIndex = Math.floor(committedIndex / chunkSize);
+      committedIndex++;
+
+      const isSucceeded = succeededChunks.includes(chunkIndex);
+      const failObj = failedChunks.find(f => f.index === chunkIndex);
+
+      const trackInfo = {
+        ...match.chosen,
+        confidence: match.chosen.score?.final 
+          ? Math.round(match.chosen.score.final * 100) 
+          : 90
+      };
+
+      if (isSucceeded) {
+        added.push(trackInfo);
+      } else if (failObj) {
+        failed.push({
+          ...trackInfo,
+          chunk: chunkIndex,
+          error: failObj.error || 'Spotify chunk transaction error'
+        });
+      } else {
+        // Fallback (e.g. if no playlist selected, so commitResult has no chunks)
+        added.push(trackInfo);
+      }
+    } else {
+      notFound.push({ rawText });
+    }
+  }
+
+  return {
+    added,
+    skippedDuplicate,
+    notFound,
+    failed,
+    counts: {
+      added: added.length,
+      skippedDuplicate: skippedDuplicate.length,
+      notFound: notFound.length,
+      failed: failed.length,
+      total: added.length + skippedDuplicate.length + notFound.length + failed.length
+    }
+  };
+}

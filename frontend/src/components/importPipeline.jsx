@@ -18,7 +18,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { extractSongs }          from '../extraction/extract.js';
 import { getValidAccessToken }   from '../auth/spotifyAuth.js';
 import DryRunPreview             from './dryRunPreview.jsx';
-import { resolveSongs, resolveSongsStream } from '../api/resolveApi.js';
+import { resolveSongs, resolveSongsStream, commitToPlaylist, buildImportReport } from '../api/resolveApi.js';
 import './importPipeline.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
@@ -120,8 +120,7 @@ export default function ImportPipeline({ isLoggedIn }) {
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [exactTrackIds, setExactTrackIds] = useState([]);
   const [nearDuplicateTrackIds, setNearDuplicateTrackIds] = useState({});
-  const [succeededUris, setSucceededUris] = useState([]);
-  const [failedUris, setFailedUris] = useState([]);
+  const [importReport, setImportReport] = useState(null);
   const [commitState, setCommitState] = useState('idle');
   const [existingTrackIds, setExistingTrackIds] = useState(new Set());
   const [deduplicateEnabled, setDeduplicateEnabled] = useState(true);
@@ -334,14 +333,20 @@ export default function ImportPipeline({ isLoggedIn }) {
     // Idempotency: filter out tracks that are already in the target playlist
     const tracksToCommit = activeMatches.filter((m) => !existingTrackIds.has(m.chosen.id));
 
+    const duplicateInfo = {
+      exactTrackIds,
+      nearDuplicateTrackIds,
+    };
+
     if (tracksToCommit.length === 0) {
+      const report = buildImportReport(matches, duplicateInfo, { succeededChunks: [], failedChunks: [] });
+      setImportReport(report);
       setCommitState('done');
-      setSucceededUris([]);
-      setFailedUris([]);
       return;
     }
 
     const commitItems = tracksToCommit.map((m) => ({
+      ...m.chosen,
       uri: m.chosen.uri || `spotify:track:${m.chosen.id}`,
       title: m.chosen.title,
       artist: m.chosen.artists || m.chosen.artist || 'Unknown Artist',
@@ -382,43 +387,28 @@ export default function ImportPipeline({ isLoggedIn }) {
       }
 
       const uris = commitItems.map((item) => item.uri);
-      const result = await import('../api/resolveApi.js').then((m) =>
-        m.commitToPlaylist(token, playlistId, uris)
-      );
-
-      const newlySucceeded = [];
-      const newlyFailed = [];
-      const chunkSize = 100;
-
-      result.succeededChunks.forEach((idx) => {
-        newlySucceeded.push(...commitItems.slice(idx * chunkSize, idx * chunkSize + chunkSize));
-      });
-
-      result.failedChunks.forEach((f) => {
-        const chunkItems = commitItems.slice(f.index * chunkSize, f.index * chunkSize + chunkSize);
-        newlyFailed.push(...chunkItems.map((item) => ({ ...item, error: f.error })));
-      });
-
-      setSucceededUris(newlySucceeded);
-      setFailedUris(newlyFailed);
+      const result = await commitToPlaylist(token, playlistId, uris);
+      const report = buildImportReport(matches, duplicateInfo, result);
+      setImportReport(report);
       setCommitState('done');
     } catch (err) {
       console.error('Commit failed:', err);
-      setFailedUris(
-        commitItems.map((item) => ({
-          ...item,
-          error: err.message || 'Verification or network error',
-        }))
-      );
+      const totalChunks = Math.ceil(commitItems.length / 100);
+      const failedChunks = [];
+      for (let c = 0; c < totalChunks; c++) {
+        failedChunks.push({ index: c, error: err.message || 'Verification or network error' });
+      }
+      const report = buildImportReport(matches, duplicateInfo, { succeededChunks: [], failedChunks });
+      setImportReport(report);
       setCommitState('done');
     }
   }
 
   async function handleRetryFailed() {
-    if (failedUris.length === 0) return;
+    if (!importReport || importReport.failed.length === 0) return;
     setCommitState('running');
 
-    const retryItems = [...failedUris];
+    const retryItems = [...importReport.failed];
     const uris = retryItems.map((item) => item.uri);
     const chunkSize = 100;
 
@@ -426,9 +416,7 @@ export default function ImportPipeline({ isLoggedIn }) {
       const token = await getValidAccessToken();
       const playlistId = selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId;
 
-      const result = await import('../api/resolveApi.js').then((m) =>
-        m.commitToPlaylist(token, playlistId, uris)
-      );
+      const result = await commitToPlaylist(token, playlistId, uris);
 
       const newlySucceeded = [];
       const newlyFailed = [];
@@ -442,18 +430,46 @@ export default function ImportPipeline({ isLoggedIn }) {
         newlyFailed.push(...chunkItems.map((item) => ({ ...item, error: f.error })));
       });
 
-      setSucceededUris((prev) => [...prev, ...newlySucceeded]);
-      setFailedUris(newlyFailed);
+      setImportReport((prev) => {
+        if (!prev) return null;
+        const updatedAdded = [
+          ...prev.added,
+          ...newlySucceeded.map((item) => ({
+            ...item,
+            confidence: item.confidence,
+          })),
+        ];
+        const updatedFailed = newlyFailed;
+        return {
+          ...prev,
+          added: updatedAdded,
+          failed: updatedFailed,
+          counts: {
+            ...prev.counts,
+            added: updatedAdded.length,
+            failed: updatedFailed.length,
+            total:
+              updatedAdded.length +
+              prev.skippedDuplicate.length +
+              prev.notFound.length +
+              updatedFailed.length,
+          },
+        };
+      });
       setCommitState('done');
     } catch (err) {
       console.error('Retry failed:', err);
       setCommitState('done');
-      setFailedUris((prev) =>
-        prev.map((item) => ({
-          ...item,
-          error: err.message || 'Retry verification or network error',
-        }))
-      );
+      setImportReport((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          failed: prev.failed.map((item) => ({
+            ...item,
+            error: err.message || 'Retry verification or network error',
+          })),
+        };
+      });
     }
   }
 
@@ -734,9 +750,8 @@ export default function ImportPipeline({ isLoggedIn }) {
               <p style={{ color: 'var(--text-muted)', margin: '0' }}>Please don't close or refresh this page.</p>
             </div>
           ) : (
-            <ImportReport
-              succeeded={succeededUris}
-              failed={failedUris}
+            <ReportView
+              report={importReport}
               playlistId={selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId}
               onRetry={handleRetryFailed}
               onReset={() => {
@@ -746,8 +761,7 @@ export default function ImportPipeline({ isLoggedIn }) {
                 setSongs([]);
                 setResolveState('idle');
                 setResolveResults([]);
-                setSucceededUris([]);
-                setFailedUris([]);
+                setImportReport(null);
               }}
             />
           )}
@@ -757,36 +771,57 @@ export default function ImportPipeline({ isLoggedIn }) {
   );
 }
 
-function ImportReport({ succeeded, failed, playlistId, onRetry, onReset }) {
-  const hasFailures = failed.length > 0;
+function ms(durationMs) {
+  if (!durationMs) return '';
+  const m = Math.floor(durationMs / 60000);
+  const s = String(Math.floor((durationMs % 60000) / 1000)).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function ReportThumb({ url, alt }) {
+  if (url) return <img src={url} alt={alt} style={{ width: '48px', height: '48px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} />;
+  return <div style={{ width: '48px', height: '48px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '18px', flexShrink: 0 }}>♪</div>;
+}
+
+function ReportView({ report, playlistId, onRetry, onReset }) {
+  const [activeTab, setActiveTab] = useState('added');
+  const [copied, setCopied] = useState(false);
+  
+  if (!report) return null;
+  const { added, skippedDuplicate, notFound, failed, counts } = report;
   const playlistUrl = playlistId ? `https://open.spotify.com/playlist/${playlistId}` : null;
+  
+  const handleCopyNotFound = () => {
+    const text = notFound.map(item => item.rawText).join('\n');
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const hasFailures = failed.length > 0;
 
   return (
-    <div className="ip-report">
-      <div className="ip-report__card" style={{
+    <div className="ip-report" style={{ maxWidth: '700px', margin: '0 auto' }}>
+      {/* Overview Card */}
+      <div style={{
         background: 'var(--card-bg)',
         border: '1px solid var(--border)',
         borderRadius: '8px',
         padding: '24px',
-        maxWidth: '600px',
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px'
+        marginBottom: '20px',
+        textAlign: 'center'
       }}>
-        <div style={{ textAlign: 'center' }}>
-          <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>
-            {hasFailures ? '⚠' : '✓'}
-          </span>
-          <h2 style={{ fontSize: '24px', margin: '0 0 8px 0', color: hasFailures ? 'var(--text)' : '#16a34a' }}>
-            {hasFailures ? 'Import completed with warnings' : 'Import successful!'}
-          </h2>
-          <p style={{ color: 'var(--text-muted)', margin: '0' }}>
-            {succeeded.length} song{succeeded.length !== 1 ? 's' : ''} added to your playlist.
-          </p>
-        </div>
+        <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>
+          {hasFailures ? '⚠' : '✓'}
+        </span>
+        <h2 style={{ fontSize: '24px', margin: '0 0 8px 0', color: hasFailures ? 'var(--text)' : '#16a34a' }}>
+          {hasFailures ? 'Import completed with warnings' : 'Import successful!'}
+        </h2>
+        <p style={{ color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
+          Reconciled {counts.total} total tracks.
+        </p>
 
-        {playlistUrl && succeeded.length > 0 && (
+        {playlistUrl && counts.added > 0 && (
           <a
             href={playlistUrl}
             target="_blank"
@@ -805,69 +840,307 @@ function ImportReport({ succeeded, failed, playlistId, onRetry, onReset }) {
             Open playlist on Spotify ↗
           </a>
         )}
+      </div>
 
-        {hasFailures && (
-          <div style={{
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-            background: 'rgba(239, 68, 68, 0.05)',
-            borderRadius: '6px',
-            padding: '16px'
-          }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#ef4444' }}>
-              Failed Tracks ({failed.length})
-            </h3>
-            <ul style={{
-              margin: '0',
-              padding: '0 0 0 20px',
+      {/* Tabs Header */}
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid var(--border)',
+        marginBottom: '16px',
+        gap: '4px'
+      }}>
+        {[
+          { key: 'added', label: 'Added', count: counts.added, color: '#16a34a' },
+          { key: 'skipped', label: 'Skipped', count: counts.skippedDuplicate, color: 'var(--text-muted)' },
+          { key: 'notFound', label: 'Not Found', count: counts.notFound, color: '#b45309' },
+          { key: 'failed', label: 'Failed', count: counts.failed, color: '#ef4444' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              flex: 1,
+              background: activeTab === tab.key ? 'var(--card-bg)' : 'transparent',
+              border: '1px solid transparent',
+              borderBottom: activeTab === tab.key ? '1px solid transparent' : '1px solid var(--border)',
+              borderTopLeftRadius: '6px',
+              borderTopRightRadius: '6px',
+              borderLeftColor: activeTab === tab.key ? 'var(--border)' : 'transparent',
+              borderRightColor: activeTab === tab.key ? 'var(--border)' : 'transparent',
+              borderTopColor: activeTab === tab.key ? 'var(--border)' : 'transparent',
+              padding: '12px 8px',
+              cursor: 'pointer',
               fontSize: '13px',
+              fontWeight: '500',
+              color: activeTab === tab.key ? 'var(--text)' : 'var(--text-muted)',
               display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              color: 'var(--text)',
-              maxHeight: '200px',
-              overflowY: 'auto'
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              position: 'relative',
+              top: '1px'
+            }}
+          >
+            {tab.label}
+            <span style={{
+              fontSize: '11px',
+              padding: '2px 6px',
+              borderRadius: '10px',
+              background: activeTab === tab.key ? tab.color : 'rgba(255,255,255,0.05)',
+              color: activeTab === tab.key ? '#fff' : 'var(--text-muted)'
             }}>
-              {failed.map((f, i) => (
-                <li key={i}>
-                  <strong>{f.title}</strong> {f.artist && `— ${f.artist}`}
-                  <div style={{ fontSize: '11px', color: '#ef4444', fontStyle: 'italic', marginTop: '2px' }}>
-                    Reason: {f.error}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={onRetry}
-              className="ip-preview-btn"
-              style={{
-                marginTop: '16px',
-                background: '#ef4444',
-                borderColor: '#ef4444',
-                color: '#fff',
-                width: '100%',
-                cursor: 'pointer'
-              }}
-            >
-              Retry Failed Chunks
-            </button>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content Card */}
+      <div style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        padding: '20px',
+        minHeight: '200px',
+        marginBottom: '20px'
+      }}>
+        {/* Added List */}
+        {activeTab === 'added' && (
+          <div>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Added to Playlist ({added.length})</h3>
+            {added.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>No tracks were added.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {added.map((item, idx) => (
+                  <li key={idx} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <ReportThumb url={item.imageUrl} alt={item.album} />
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                          <strong style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
+                            {item.title}
+                          </strong>
+                          <span style={{
+                            fontSize: '11px',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            background: item.confidence >= 90 ? 'rgba(34,197,94,0.1)' : item.confidence >= 70 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: item.confidence >= 90 ? '#10b981' : item.confidence >= 70 ? '#f59e0b' : '#ef4444',
+                            border: '1px solid currentColor'
+                          }}>
+                            {item.confidence}% Match
+                          </span>
+                        </div>
+                        <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.artists || item.artist}
+                        </span>
+                        {item.album && (
+                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {item.album}{item.releaseYear ? ` (${item.releaseYear})` : ''}{item.durationMs ? ` · ${ms(item.durationMs)}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Collapsible Score Breakdown details container */}
+                    {item.score && (
+                      <details style={{
+                        borderTop: '1px solid var(--border)',
+                        paddingTop: '8px',
+                        fontSize: '12px',
+                        color: 'var(--text-muted)'
+                      }}>
+                        <summary style={{ cursor: 'pointer', outline: 'none', userSelect: 'none', fontWeight: '500' }}>
+                          Confidence Score Breakdown
+                        </summary>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: '8px',
+                          padding: '10px',
+                          marginTop: '8px',
+                          background: 'rgba(0,0,0,0.15)',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border)'
+                        }}>
+                          <div>Title similarity: <strong style={{ color: 'var(--text)' }}>{Math.round((item.score.title ?? 0) * 100)}%</strong></div>
+                          <div>Artist similarity: <strong style={{ color: 'var(--text)' }}>{Math.round((item.score.artist ?? 0) * 100)}%</strong></div>
+                          <div>Popularity weight: <strong style={{ color: 'var(--text)' }}>{Math.round((item.score.popularity ?? 0) * 100)}%</strong></div>
+                          <div>Modifier factor: <strong style={{ color: 'var(--text)' }}>{item.score.modifierFactor ?? 1}</strong></div>
+                        </div>
+                      </details>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
-        <button
-          onClick={onReset}
-          style={{
-            background: 'none',
-            border: '1px solid var(--border)',
-            borderRadius: '4px',
-            color: 'var(--text)',
-            padding: '10px 16px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            width: '100%'
-          }}
-        >
-          Import another list
-        </button>
+        {/* Skipped duplicates */}
+        {activeTab === 'skipped' && (
+          <div>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Skipped Duplicates ({skippedDuplicate.length})</h3>
+            {skippedDuplicate.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>No tracks were skipped as duplicates.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {skippedDuplicate.map((item, idx) => (
+                  <li key={idx} style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <ReportThumb url={item.imageUrl} alt={item.album} />
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                        <strong style={{ display: 'block', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
+                          {item.title}
+                        </strong>
+                        <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.artists || item.artist}
+                        </span>
+                        {item.album && (
+                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {item.album}{item.releaseYear ? ` (${item.releaseYear})` : ''}{item.durationMs ? ` · ${ms(item.durationMs)}` : ''}
+                          </span>
+                        )}
+                        <div style={{ fontSize: '12px', color: '#d97706', marginTop: '6px', fontWeight: '500' }}>
+                          ↳ Skipped: {item.matchedWith}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Not Found */}
+        {activeTab === 'notFound' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '16px' }}>Not Found ({notFound.length})</h3>
+              {notFound.length > 0 && (
+                <button
+                  onClick={handleCopyNotFound}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    color: 'var(--text)'
+                  }}
+                >
+                  {copied ? 'Copied ✓' : 'Copy All'}
+                </button>
+              )}
+            </div>
+            {notFound.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>No tracks were not found.</p>
+            ) : (
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 0, marginBottom: '12px' }}>
+                  These queries didn't yield matches. Copy them to retry or search manually.
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {notFound.map((item, idx) => (
+                    <li key={idx} style={{
+                      padding: '8px 12px',
+                      background: 'rgba(255,255,255,0.01)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontFamily: 'var(--mono)',
+                      fontSize: '12px'
+                    }}>
+                      {item.rawText}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Failed */}
+        {activeTab === 'failed' && (
+          <div>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Failed Commits ({failed.length})</h3>
+            {failed.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>No tracks failed to write.</p>
+            ) : (
+              <div>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 0, marginBottom: '12px' }}>
+                  The following songs could not be written to Spotify due to api/network transaction failures.
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                  {failed.map((item, idx) => (
+                    <li key={idx} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px',
+                      background: 'rgba(239,68,68,0.02)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      borderRadius: '6px',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <ReportThumb url={item.imageUrl} alt={item.album} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <strong style={{ display: 'block', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
+                            {item.title}
+                          </strong>
+                          <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.artists || item.artist}
+                          </span>
+                          {item.album && (
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              {item.album}{item.releaseYear ? ` (${item.releaseYear})` : ''}{item.durationMs ? ` · ${ms(item.durationMs)}` : ''}
+                            </span>
+                          )}
+                          <div style={{ fontSize: '11px', color: '#ef4444', fontStyle: 'italic', marginTop: '6px', fontWeight: '500' }}>
+                            Reason (Chunk #{item.chunk + 1}): {item.error}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={onRetry}
+                  className="ip-preview-btn"
+                  style={{
+                    background: '#ef4444',
+                    borderColor: '#ef4444',
+                    color: '#fff',
+                    width: '100%',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Retry Failed Chunks
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
