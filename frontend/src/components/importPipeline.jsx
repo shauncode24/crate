@@ -17,8 +17,8 @@
 import { useState, useCallback } from 'react';
 import { extractSongs }          from '../extraction/extract.js';
 import { getValidAccessToken }   from '../auth/spotifyAuth.js';
-import { resolveSongsStream }    from '../api/resolveApi.js';
 import DryRunPreview             from './dryRunPreview.jsx';
+import { resolveSongs, resolveSongsStream } from '../api/resolveApi.js';
 import './importPipeline.css';
 
 // ── Pipeline step IDs ────────────────────────────────────────────────────────
@@ -159,6 +159,15 @@ export default function ImportPipeline({ isLoggedIn }) {
       setResolveState('error');
     }
   }, [songs, isLoggedIn]);
+
+    const handleManualSearch = useCallback(async (originalIndex, correctedText) => {
+    if (!isLoggedIn) throw new Error('Log in with Spotify (nav bar) to search.');
+    const text = correctedText.trim();
+    if (!text) throw new Error('Enter a search term first.');
+    const token = await getValidAccessToken();
+    const { results } = await resolveSongs([{ title: text, artist: null, rawText: text }], token);
+    return results[0];
+    }, [isLoggedIn]);
 
   // ── Step 3: enter preview ─────────────────────────────────────────────────
 
@@ -369,6 +378,7 @@ export default function ImportPipeline({ isLoggedIn }) {
         <DryRunPreview
           resolvedMatches={resolveResults}
           onConfirm={handleConfirm}
+          onManualSearch={handleManualSearch}
           onBack={() => {
             setActiveStep('resolve');
             setDoneSteps((prev) => prev.filter((s) => s !== 'preview'));

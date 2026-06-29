@@ -20,6 +20,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import './dryRunPreview.css';
+import BatchReviewUI from './batchReviewUI.jsx';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -229,19 +230,14 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
 
 // ── Review section ───────────────────────────────────────────────────────────
 
-function ReviewSection({ items, reviewState, onReviewChange }) {
-  const [expanded, setExpanded] = useState(true);
-  const pendingCount = items.filter((item) => !reviewState[item.originalIndex]?.resolved).length;
-
+function ReviewSection({ items, reviewState, onReviewChange, onManualSearch }) {
   if (items.length === 0) return null;
 
   return (
     <Section
       icon="⚠"
       title="Needs review"
-      badge={pendingCount > 0
-        ? `${pendingCount} pending`
-        : `${items.length} resolved`}
+      badge={`${items.length} pending`}
       badgeVariant="review"
       defaultOpen
     >
@@ -250,62 +246,21 @@ function ReviewSection({ items, reviewState, onReviewChange }) {
           <strong>{items.length} track{items.length !== 1 ? 's' : ''}</strong> had ambiguous
           Spotify matches. Pick the right version for each one before confirming.
         </p>
-        <button
-          className="drp-review-expand-btn"
-          onClick={() => setExpanded((e) => !e)}
-        >
-          {expanded ? 'Collapse all' : 'Expand all'}
-        </button>
       </div>
 
-      <ul className="drp-review-list">
-        {items.map(({ match, originalIndex }) => {
-          const state = reviewState[originalIndex] ?? { resolved: false, chosen: null, skipped: false };
-          const isResolved = state.resolved;
-          const candidates = match.topCandidates ?? match.allCandidates ?? [];
-
-          return (
-            <li
-              key={originalIndex}
-              className={`drp-review-item ${isResolved ? 'drp-review-item--resolved' : ''}`}
-            >
-              <div className="drp-review-item__header">
-                <span className="drp-review-item__index">{originalIndex + 1}</span>
-                <div className="drp-review-item__info">
-                  <span className="drp-review-item__title">{match.parsedSong.title}</span>
-                  {match.parsedSong.artist && (
-                    <span className="drp-review-item__artist">{match.parsedSong.artist}</span>
-                  )}
-                </div>
-                <span className={`drp-review-item__status drp-review-item__status--${isResolved ? 'resolved' : 'pending'}`}>
-                  {state.skipped ? 'skipped' : isResolved ? 'picked' : 'needs pick'}
-                </span>
-              </div>
-
-              {expanded && (
-                <CandidatePicker
-                  candidates={candidates}
-                  selectedId={state.chosen?.id ?? null}
-                  onSelect={(candidate) => {
-                    onReviewChange(originalIndex, {
-                      resolved: candidate !== null,
-                      chosen: candidate,
-                      skipped: false,
-                    });
-                  }}
-                  onSkip={() => {
-                    onReviewChange(originalIndex, {
-                      resolved: true,
-                      chosen: null,
-                      skipped: true,
-                    });
-                  }}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <BatchReviewUI
+        items={items}
+        onManualSearch={onManualSearch}
+        onConfirmAll={(resultsMap) => {
+          Object.entries(resultsMap).forEach(([idx, resolvedMatch]) => {
+            onReviewChange(Number(idx), {
+              resolved: true,
+              chosen: resolvedMatch.chosen,
+              skipped: resolvedMatch.status === 'skipped',
+            });
+          });
+        }}
+      />
     </Section>
   );
 }
@@ -414,19 +369,7 @@ function ConfirmedState({ readyCount, onBack }) {
  * @param {function} onConfirm        — called with finalMatches once the user confirms
  * @param {function} [onBack]         — optional back navigation
  */
-export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
-  // Partition matches into three buckets, keeping original index for correlation
-  const { readyItems, reviewItems, missingItems } = useMemo(() => {
-    const ready = [], review = [], missing = [];
-    (resolvedMatches ?? []).forEach((match, i) => {
-      const item = { match, originalIndex: i };
-      if (match.status === 'auto')     ready.push(item);
-      else if (match.status === 'review') review.push(item);
-      else                             missing.push(item);
-    });
-    return { readyItems: ready, reviewItems: review, missingItems: missing };
-  }, [resolvedMatches]);
-
+export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onManualSearch }) {
   // Review state: { [originalIndex]: { resolved, chosen, skipped } }
   const [reviewState, setReviewState] = useState({});
   const [confirmed, setConfirmed] = useState(false);
@@ -435,6 +378,31 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
     setReviewState((prev) => ({ ...prev, [index]: state }));
   }, []);
 
+  // Partition matches into three buckets, keeping original index for correlation
+  const { readyItems, reviewItems, missingItems } = useMemo(() => {
+    const ready = [], review = [], missing = [];
+    (resolvedMatches ?? []).forEach((match, i) => {
+      if (!match) return;
+      const item = { match, originalIndex: i };
+      const rs = reviewState[i];
+      if (match.status === 'auto') {
+        ready.push(item);
+      } else if (match.status === 'review') {
+        if (rs?.resolved) {
+          if (rs.chosen) {
+            ready.push(item);
+          }
+          // If rs.skipped, it doesn't go to ready or review
+        } else {
+          review.push(item);
+        }
+      } else {
+        missing.push(item);
+      }
+    });
+    return { readyItems: ready, reviewItems: review, missingItems: missing };
+  }, [resolvedMatches, reviewState]);
+
   const reviewPendingCount = reviewItems.filter(
     ({ originalIndex }) => !reviewState[originalIndex]?.resolved
   ).length;
@@ -442,14 +410,28 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
   // The final tracks that will be added: auto-accepted + user-picked reviews + overrides
   const resolvedForCommit = useMemo(() => {
     return (resolvedMatches ?? []).map((match, i) => {
+      if (!match) return null;
       const rs = reviewState[i];
       if (rs !== undefined) {
         if (rs.resolved) {
           if (rs.chosen) {
+            if (match.status === 'review') {
+              return { 
+                ...match, 
+                status: 'resolved-by-review', 
+                chosen: rs.chosen, 
+                resolutionMethod: 'batch-review-pick' 
+              };
+            }
             return { ...match, status: 'auto', chosen: rs.chosen, userPicked: true };
           }
           if (rs.skipped) {
-            return { ...match, status: 'skipped' };
+            return { 
+              ...match, 
+              status: 'skipped', 
+              chosen: null, 
+              resolutionMethod: match.status === 'review' ? 'batch-review-skip' : undefined 
+            };
           }
         }
       }
@@ -462,9 +444,9 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
     onConfirm?.(resolvedForCommit);
   }
 
-  // Count truly ready: status === 'auto' in resolvedForCommit
+  // Count truly ready: status === 'auto' or 'resolved-by-review' in resolvedForCommit
   const finalReadyCount = useMemo(() => {
-    return resolvedForCommit.filter((m) => m.status === 'auto').length;
+    return resolvedForCommit.filter((m) => m && (m.status === 'auto' || m.status === 'resolved-by-review')).length;
   }, [resolvedForCommit]);
 
   if (confirmed) {
@@ -501,6 +483,7 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
         items={reviewItems}
         reviewState={reviewState}
         onReviewChange={handleReviewChange}
+        onManualSearch={onManualSearch}
       />
       <MissingSection items={missingItems} />
     </div>
