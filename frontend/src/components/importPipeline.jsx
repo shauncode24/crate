@@ -14,12 +14,44 @@
  *   isLoggedIn  — from App auth state
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { extractSongs }          from '../extraction/extract.js';
 import { getValidAccessToken }   from '../auth/spotifyAuth.js';
 import DryRunPreview             from './dryRunPreview.jsx';
 import { resolveSongs, resolveSongsStream } from '../api/resolveApi.js';
 import './importPipeline.css';
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+
+async function fetchPlaylistTracks(playlistId, token) {
+  let tracks = [];
+  let url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=next,items(track(id,name,artists(name)))&limit=100`;
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch playlist tracks: ${res.statusText}`);
+    }
+    const data = await res.json();
+    if (data.items) {
+      for (const item of data.items) {
+        if (item.track) {
+          tracks.push({
+            id: item.track.id,
+            title: item.track.name,
+            artist: item.track.artists?.[0]?.name ?? ''
+          });
+        }
+      }
+    }
+    url = data.next;
+  }
+  return tracks;
+}
 
 // ── Pipeline step IDs ────────────────────────────────────────────────────────
 
@@ -78,6 +110,40 @@ export default function ImportPipeline({ isLoggedIn }) {
   const [activeStep,   setActiveStep]   = useState('input');
   const [doneSteps,    setDoneSteps]    = useState([]);
   const [finalMatches, setFinalMatches] = useState(null);
+
+  // Playlist selection & duplicate detection
+  const [playlists, setPlaylists] = useState([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState('');
+  const [customPlaylistId, setCustomPlaylistId] = useState('');
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [exactTrackIds, setExactTrackIds] = useState([]);
+  const [nearDuplicateTrackIds, setNearDuplicateTrackIds] = useState({});
+
+  // Fetch user playlists when resolution completes
+  useEffect(() => {
+    async function loadPlaylists() {
+      if (!isLoggedIn) return;
+      setLoadingPlaylists(true);
+      try {
+        const token = await getValidAccessToken();
+        const res = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPlaylists(data.items ?? []);
+        }
+      } catch (err) {
+        console.error('Failed to load playlists:', err);
+      } finally {
+        setLoadingPlaylists(false);
+      }
+    }
+    if (activeStep === 'resolve' && resolveState === 'done') {
+      loadPlaylists();
+    }
+  }, [activeStep, resolveState, isLoggedIn]);
 
   // ── Step 1 handler ────────────────────────────────────────────────────────
 
@@ -171,9 +237,69 @@ export default function ImportPipeline({ isLoggedIn }) {
 
   // ── Step 3: enter preview ─────────────────────────────────────────────────
 
-  function enterPreview() {
-    setActiveStep('preview');
-    setDoneSteps((prev) => [...new Set([...prev, 'resolve'])]);
+  async function enterPreview() {
+    const playlistId = selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId;
+    if (!playlistId) {
+      setExactTrackIds([]);
+      setNearDuplicateTrackIds({});
+      setActiveStep('preview');
+      setDoneSteps((prev) => [...new Set([...prev, 'resolve'])]);
+      return;
+    }
+
+    setCheckingDuplicates(true);
+    try {
+      const token = await getValidAccessToken();
+      const existingTracks = await fetchPlaylistTracks(playlistId, token);
+
+      const res = await fetch(`${API_BASE}/api/resolve/check-duplicates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          resolvedMatches: resolveResults,
+          existingTracks: existingTracks
+        })
+      });
+      if (!res.ok) throw new Error('Duplicate check failed.');
+
+      const dupData = await res.json();
+      setExactTrackIds(dupData.exactTrackIds ?? []);
+      setNearDuplicateTrackIds(dupData.nearDuplicateTrackIds ?? {});
+
+      const exactSet = new Set(dupData.exact);
+      const nearMap = new Map(Object.entries(dupData.nearDuplicate).map(([k, v]) => [Number(k), v]));
+
+      setResolveResults((prev) =>
+        prev.map((match, i) => {
+          if (!match) return null;
+          if (exactSet.has(i)) {
+            return {
+              ...match,
+              isDuplicate: true,
+              duplicateReason: 'exact'
+            };
+          }
+          if (nearMap.has(i)) {
+            return {
+              ...match,
+              duplicateWarning: `Already in playlist as "${nearMap.get(i)}"`
+            };
+          }
+          return match;
+        })
+      );
+    } catch (err) {
+      console.error("Duplicate check error:", err);
+      setExactTrackIds([]);
+      setNearDuplicateTrackIds({});
+    } finally {
+      setCheckingDuplicates(false);
+      setActiveStep('preview');
+      setDoneSteps((prev) => [...new Set([...prev, 'resolve'])]);
+    }
   }
 
   // ── Step 3: confirm ───────────────────────────────────────────────────────
@@ -329,14 +455,69 @@ export default function ImportPipeline({ isLoggedIn }) {
           )}
 
           {resolveState === 'done' && (
-            <div className="ip-resolve-done-row">
-              <span className="ip-resolve-done-summary">
-                <strong>{autoCount}</strong> auto · {reviewCount} need review · {missingCount} not found
-              </span>
-              <button className="ip-preview-btn" onClick={enterPreview}>
-                Review & confirm →
-              </button>
-            </div>
+            <>
+              <div className="ip-playlist-selector" style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+                  Target playlist for duplicate checking:
+                </label>
+                {loadingPlaylists ? (
+                  <div style={{ color: 'var(--text-muted)' }}>Loading your playlists...</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '400px' }}>
+                    <select
+                      style={{
+                        padding: '8px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--input-bg)',
+                        color: 'var(--text)',
+                        width: '100%',
+                      }}
+                      value={selectedPlaylistId}
+                      onChange={(e) => setSelectedPlaylistId(e.target.value)}
+                    >
+                      <option value="">-- No duplicate checking (skip) --</option>
+                      <option value="custom">-- Enter Playlist ID manually --</option>
+                      {playlists.map((pl) => (
+                        <option key={pl.id} value={pl.id}>
+                          {pl.name} ({pl.tracks?.total ?? 0} tracks)
+                        </option>
+                      ))}
+                    </select>
+
+                    {selectedPlaylistId === 'custom' && (
+                      <input
+                        type="text"
+                        placeholder="Paste Spotify Playlist ID here"
+                        style={{
+                          padding: '8px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--input-bg)',
+                          color: 'var(--text)',
+                          width: '100%',
+                        }}
+                        value={customPlaylistId}
+                        onChange={(e) => setCustomPlaylistId(e.target.value.trim())}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="ip-resolve-done-row" style={{ marginTop: '16px' }}>
+                <span className="ip-resolve-done-summary">
+                  <strong>{autoCount}</strong> auto · {reviewCount} need review · {missingCount} not found
+                </span>
+                <button
+                  className="ip-preview-btn"
+                  onClick={enterPreview}
+                  disabled={checkingDuplicates}
+                >
+                  {checkingDuplicates ? 'Checking duplicates...' : 'Review & confirm →'}
+                </button>
+              </div>
+            </>
           )}
 
           {(resolveState === 'running' || resolveState === 'done') && resolveResults.length > 0 && (
@@ -383,6 +564,8 @@ export default function ImportPipeline({ isLoggedIn }) {
             setActiveStep('resolve');
             setDoneSteps((prev) => prev.filter((s) => s !== 'preview'));
           }}
+          exactTrackIds={exactTrackIds}
+          nearDuplicateTrackIds={nearDuplicateTrackIds}
         />
       )}
     </div>

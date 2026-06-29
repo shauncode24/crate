@@ -231,3 +231,18 @@ async def get_cache() -> dict:
 async def clear_cache() -> None:
     """Wipe the in-memory cache and reset session counters."""
     match_cache.clear()
+
+
+class CheckDuplicatesRequest(BaseModel):
+    resolvedMatches: list[dict]
+    existingTracks: list[dict]
+
+@router.post("/resolve/check-duplicates")
+async def check_duplicates_endpoint(body: CheckDuplicatesRequest) -> dict:
+    """Check resolved matches against existing tracks in the playlist."""
+    from .duplicates import check_duplicates
+    logger.info("[Duplicates API] incoming resolvedMatches: %d items", len(body.resolvedMatches))
+    logger.info("[Duplicates API] incoming existingTracks: %d items", len(body.existingTracks))
+    res = await check_duplicates(body.resolvedMatches, body.existingTracks)
+    logger.info("[Duplicates API] result: %s", str(res))
+    return res

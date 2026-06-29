@@ -1,20 +1,116 @@
 {
-  "songs": [
-    {
-      "title": "Snowfall",
-      "artist": "Øneheart"
-    },
-    {
-      "title": "Painted Skies",
-      "artist": "Elaine"
-    },
-    {
-      "title": "Dawn",
-      "artist": "Jazz Oikawa"
-    },
-    {
-      "title": "Gehra Hua",
-      "artist": null
-    }
-  ]
+    "songs": [
+        {
+            "title": "Tum Hi Ho",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Kesariya",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Raatan Lambiyan",
+            "artist": null
+        },
+        {
+            "title": "Channa Mereya",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Jai Ho (Official Video) [Lyrics]",
+            "artist": "A.R. Rahman"
+        },
+        {
+            "title": "Tere Bina",
+            "artist": null
+        },
+        {
+            "title": "Kalank Title Track",
+            "artist": null
+        },
+        {
+            "title": "Dil Dhadakne Do (Remaster)",
+            "artist": "Shankar Ehsaan Loy"
+        },
+        {
+            "title": "Kabhi Khushi Kabhie Gham",
+            "artist": null
+        },
+        {
+            "title": "Lukka Chuppi",
+            "artist": null
+        },
+        {
+            "title": "Ae Dil Hai Mushkil",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Ik Vaari Aa",
+            "artist": "Pritam"
+        },
+        {
+            "title": "Tujhe Kitna Chahne Lage",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Hawayein [4K]",
+            "artist": "Pritam"
+        },
+        {
+            "title": "Khairiyat",
+            "artist": null
+        },
+        {
+            "title": "Phir Mohabbat",
+            "artist": "Arijit Singh"
+        },
+        {
+            "title": "Dil Se Re",
+            "artist": null
+        },
+        {
+            "title": "Judaai",
+            "artist": "Atif Aslam"
+        },
+        {
+            "title": "Dastaan-E-Om Shanti Om",
+            "artist": null
+        },
+        {
+            "title": "Tera Ban Jaunga",
+            "artist": null
+        },
+        {
+            "title": "Bekhayali",
+            "artist": "Sachet Tandon"
+        },
+        {
+            "title": "Tujhse Naraz Nahin",
+            "artist": "Lata Mangeshkar"
+        },
+        {
+            "title": "Bina Tere Naam Ke",
+            "artist": null
+        },
+        {
+            "title": "Roja Title Track",
+            "artist": "A.R. Rahman"
+        },
+        {
+            "title": "Ek Pyaar Ka Nagma Hai (Official Video) [4K]",
+            "artist": "Lata Mangeshkar"
+        },
+        {
+            "title": "Gaana Bina Dot",
+            "artist": null
+        },
+        {
+            "title": "Lag Ja Gale",
+            "artist": "Lata Mangeshkar"
+        },
+        {
+            "title": "Gehra Hua",
+            "artist": null
+        }
+    ]
 }

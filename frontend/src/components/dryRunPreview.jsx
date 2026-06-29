@@ -61,7 +61,7 @@ function Section({ icon, title, badge, badgeVariant, defaultOpen = true, childre
 
 // ── Ready section ─────────────────────────────────────────────────────────────
 
-function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
+function ReadyItem({ match, originalIndex, reviewState, onReviewChange, exactTrackIds, nearDuplicateTrackIds }) {
   const [expanded, setExpanded] = useState(false);
   const state = reviewState[originalIndex];
   const isOverridden = state !== undefined;
@@ -76,7 +76,7 @@ function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
       <div className="drp-ready-item">
         {isSkipped ? (
           <div className="drp-ready-item__skipped-placeholder">
-            <span>[Skipped] {match.parsedSong.title}{match.parsedSong.artist && ` — ${match.parsedSong.artist}`}</span>
+            <span>{match.isDuplicate ? '[Duplicate - Skipped]' : '[Skipped]'} {match.parsedSong.title}{match.parsedSong.artist && ` — ${match.parsedSong.artist}`}</span>
           </div>
         ) : (
           <>
@@ -85,6 +85,11 @@ function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
               <span className="drp-ready-item__title">
                 {c?.title}
                 {isOverridden && <span className="drp-ready-item__override-badge">Overridden</span>}
+                {match.duplicateWarning && (
+                  <span className="drp-ready-item__warning-badge" style={{ color: '#d97706', marginLeft: '6px', fontSize: '11px', background: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '3px' }}>
+                    ⚠ {match.duplicateWarning}
+                  </span>
+                )}
               </span>
               <span className="drp-ready-item__artist">{c?.artists || c?.artist}</span>
             </div>
@@ -130,6 +135,8 @@ function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
                 skipped: true,
               });
             }}
+            exactTrackIds={exactTrackIds}
+            nearDuplicateTrackIds={nearDuplicateTrackIds}
           />
           {isOverridden && (
             <button
@@ -146,7 +153,7 @@ function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
   );
 }
 
-function ReadySection({ items, reviewState, onReviewChange }) {
+function ReadySection({ items, reviewState, onReviewChange, exactTrackIds, nearDuplicateTrackIds }) {
   if (items.length === 0) return null;
   const activeCount = items.filter(({ originalIndex }) => !reviewState[originalIndex]?.skipped).length;
   const badgeText = activeCount === items.length
@@ -168,6 +175,8 @@ function ReadySection({ items, reviewState, onReviewChange }) {
             originalIndex={originalIndex}
             reviewState={reviewState}
             onReviewChange={onReviewChange}
+            exactTrackIds={exactTrackIds}
+            nearDuplicateTrackIds={nearDuplicateTrackIds}
           />
         ))}
       </ol>
@@ -177,7 +186,7 @@ function ReadySection({ items, reviewState, onReviewChange }) {
 
 // ── Candidate picker for a single review item ────────────────────────────────
 
-function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
+function CandidatePicker({ candidates, selectedId, onSelect, onSkip, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
   const [showAll, setShowAll] = useState(false);
   
   // Show top 3 candidates; expand if user clicks Show All
@@ -190,6 +199,8 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
       <ul className="drp-candidate-options">
         {shown.map((c) => {
           const isSelected = c.id === selectedId;
+          const isExactDup = exactTrackIds.includes(c.id);
+          const nearDupWarning = nearDuplicateTrackIds[c.id];
           return (
             <li key={c.id}>
               <button
@@ -199,7 +210,11 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
               >
                 <CandidateThumb url={c.imageUrl} alt={c.album} />
                 <div className="drp-candidate-option__info">
-                  <span className="drp-candidate-option__title">{c.title}</span>
+                  <span className="drp-candidate-option__title">
+                    {c.title}
+                    {isExactDup && <span style={{ color: '#dc2626', marginLeft: '6px', font: '10px var(--mono)' }}>(Already in playlist)</span>}
+                    {nearDupWarning && <span style={{ color: '#d97706', marginLeft: '6px', font: '10px var(--mono)' }}>(Already in playlist as "{nearDupWarning}")</span>}
+                  </span>
                   <span className="drp-candidate-option__artist">{c.artists || c.artist}</span>
                   <span className="drp-candidate-option__album">
                     {c.album}{c.releaseYear ? ` (${c.releaseYear})` : ''} · {ms(c.durationMs)}
@@ -230,7 +245,7 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
 
 // ── Review section ───────────────────────────────────────────────────────────
 
-function ReviewSection({ items, reviewState, onReviewChange, onManualSearch }) {
+function ReviewSection({ items, reviewState, onReviewChange, onManualSearch, exactTrackIds, nearDuplicateTrackIds }) {
   if (items.length === 0) return null;
 
   return (
@@ -251,6 +266,8 @@ function ReviewSection({ items, reviewState, onReviewChange, onManualSearch }) {
       <BatchReviewUI
         items={items}
         onManualSearch={onManualSearch}
+        exactTrackIds={exactTrackIds}
+        nearDuplicateTrackIds={nearDuplicateTrackIds}
         onConfirmAll={(resultsMap) => {
           Object.entries(resultsMap).forEach(([idx, resolvedMatch]) => {
             onReviewChange(Number(idx), {
@@ -369,9 +386,22 @@ function ConfirmedState({ readyCount, onBack }) {
  * @param {function} onConfirm        — called with finalMatches once the user confirms
  * @param {function} [onBack]         — optional back navigation
  */
-export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onManualSearch }) {
+export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onManualSearch, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
   // Review state: { [originalIndex]: { resolved, chosen, skipped } }
-  const [reviewState, setReviewState] = useState({});
+  const [reviewState, setReviewState] = useState(() => {
+    const initial = {};
+    (resolvedMatches ?? []).forEach((match, i) => {
+      if (match?.isDuplicate) {
+        initial[i] = {
+          resolved: true,
+          chosen: null,
+          skipped: true,
+          isDuplicate: true,
+        };
+      }
+    });
+    return initial;
+  });
   const [confirmed, setConfirmed] = useState(false);
 
   const handleReviewChange = useCallback((index, state) => {
@@ -388,11 +418,8 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
       if (match.status === 'auto') {
         ready.push(item);
       } else if (match.status === 'review') {
-        if (rs?.resolved) {
-          if (rs.chosen) {
-            ready.push(item);
-          }
-          // If rs.skipped, it doesn't go to ready or review
+        if (rs?.resolved && rs.chosen) {
+          ready.push(item);
         } else {
           review.push(item);
         }
@@ -478,12 +505,16 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
         items={readyItems}
         reviewState={reviewState}
         onReviewChange={handleReviewChange}
+        exactTrackIds={exactTrackIds}
+        nearDuplicateTrackIds={nearDuplicateTrackIds}
       />
       <ReviewSection
         items={reviewItems}
         reviewState={reviewState}
         onReviewChange={handleReviewChange}
         onManualSearch={onManualSearch}
+        exactTrackIds={exactTrackIds}
+        nearDuplicateTrackIds={nearDuplicateTrackIds}
       />
       <MissingSection items={missingItems} />
     </div>

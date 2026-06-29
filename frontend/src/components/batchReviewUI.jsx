@@ -40,7 +40,7 @@ function Thumb({ url, alt }) {
 
 // ── One song's radio group ───────────────────────────────────────────────────
 
-function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManualSearch }) {
+function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManualSearch, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
   const { match, originalIndex } = entry;
   const initialOptions = match.topCandidates?.length
     ? match.topCandidates
@@ -100,6 +100,11 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
         <div className="brv-song__info">
           <span className="brv-song__title">{match.parsedSong.title}</span>
           {match.parsedSong.artist && <span className="brv-song__artist">{match.parsedSong.artist}</span>}
+          {match.duplicateWarning && (
+            <span className="brv-song__warning-badge" style={{ color: '#d97706', fontSize: '11px', background: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '3px', marginTop: '4px', display: 'inline-block' }}>
+              ⚠ {match.duplicateWarning}
+            </span>
+          )}
         </div>
         <span className={`brv-song__status brv-song__status--${selection ? 'picked' : 'pending'}`}>
           {selection ? (isSkipSelected ? 'skipped' : 'picked') : 'needs a pick'}
@@ -107,27 +112,35 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
       </div>
 
       <div className="brv-options" role="radiogroup" aria-label={`Candidates for ${match.parsedSong.title}`}>
-        {options.map((c) => (
-          <label key={c.id} className={`brv-option ${selectedCandidateId === c.id ? 'brv-option--selected' : ''}`}>
-            <input
-              type="radio"
-              name={groupName}
-              checked={selectedCandidateId === c.id}
-              onChange={() => onSelectCandidate(originalIndex, c)}
-            />
-            <Thumb url={c.imageUrl} alt={c.album} />
-            <div className="brv-option__info">
-              <span className="brv-option__title">{c.title}</span>
-              <span className="brv-option__artist">{c.artists || c.artist}</span>
-              {c.album && (
-                <span className="brv-option__album">
-                  {c.album}{c.releaseYear ? ` (${c.releaseYear})` : ''}{c.durationMs ? ` · ${ms(c.durationMs)}` : ''}
+        {options.map((c) => {
+          const isExactDup = exactTrackIds.includes(c.id);
+          const nearDupWarning = nearDuplicateTrackIds[c.id];
+          return (
+            <label key={c.id} className={`brv-option ${selectedCandidateId === c.id ? 'brv-option--selected' : ''}`}>
+              <input
+                type="radio"
+                name={groupName}
+                checked={selectedCandidateId === c.id}
+                onChange={() => onSelectCandidate(originalIndex, c)}
+              />
+              <Thumb url={c.imageUrl} alt={c.album} />
+              <div className="brv-option__info">
+                <span className="brv-option__title">
+                  {c.title}
+                  {isExactDup && <span style={{ color: '#dc2626', marginLeft: '6px', font: '10px var(--mono)' }}>(Already in playlist)</span>}
+                  {nearDupWarning && <span style={{ color: '#d97706', marginLeft: '6px', font: '10px var(--mono)' }}>(Already in playlist as "{nearDupWarning}")</span>}
                 </span>
-              )}
-            </div>
-            <span className="brv-option__score">{c.score?.final ?? '—'}</span>
-          </label>
-        ))}
+                <span className="brv-option__artist">{c.artists || c.artist}</span>
+                {c.album && (
+                  <span className="brv-option__album">
+                    {c.album}{c.releaseYear ? ` (${c.releaseYear})` : ''}{c.durationMs ? ` · ${ms(c.durationMs)}` : ''}
+                  </span>
+                )}
+              </div>
+              <span className="brv-option__score">{c.score?.final ?? '—'}</span>
+            </label>
+          );
+        })}
 
         <label className="brv-option brv-option--manual">
           <input
@@ -180,8 +193,16 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function BatchReviewUI({ items, onManualSearch, onConfirmAll }) {
-  const [selections, setSelections] = useState({}); // { [originalIndex]: { type: 'candidate'|'skip', candidate? } }
+export default function BatchReviewUI({ items, onManualSearch, onConfirmAll, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
+  const [selections, setSelections] = useState(() => {
+    const initial = {};
+    items.forEach(({ match, originalIndex }) => {
+      if (match.isDuplicate) {
+        initial[originalIndex] = { type: 'skip' };
+      }
+    });
+    return initial;
+  });
 
   const handleSelectCandidate = useCallback((originalIndex, candidate) => {
     setSelections((prev) => {
@@ -232,6 +253,8 @@ export default function BatchReviewUI({ items, onManualSearch, onConfirmAll }) {
             onSelectCandidate={handleSelectCandidate}
             onSelectSkip={handleSelectSkip}
             onManualSearch={onManualSearch}
+            exactTrackIds={exactTrackIds}
+            nearDuplicateTrackIds={nearDuplicateTrackIds}
           />
         ))}
       </ul>
