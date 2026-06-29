@@ -17,7 +17,12 @@ export async function extractSongs(rawText) {
   if (USE_MOCK) {
     // Simulate network delay for UI responsiveness testing
     await new Promise((resolve) => setTimeout(resolve, 600));
-    return mockSongs.songs;
+    // Tag each song with parseMethod. In mock mode we simulate a realistic
+    // ~8% LLM fallback rate (every 12th song uses the LLM path).
+    return mockSongs.songs.map((song, idx) => ({
+      ...song,
+      parseMethod: idx % 12 === 0 ? 'llm' : 'heuristic',
+    }));
   }
 
   const res = await fetch(`${API_BASE}/api/parse/llm`, {
@@ -32,5 +37,6 @@ export async function extractSongs(rawText) {
   }
 
   const { songs } = await res.json();
-  return songs;
+  // Real LLM backend always uses the LLM path
+  return songs.map((song) => ({ ...song, parseMethod: 'llm' }));
 }

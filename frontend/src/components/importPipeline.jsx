@@ -18,7 +18,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { extractSongs }          from '../extraction/extract.js';
 import { getValidAccessToken }   from '../auth/spotifyAuth.js';
 import DryRunPreview             from './dryRunPreview.jsx';
-import { resolveSongs, resolveSongsStream, commitToPlaylist, buildImportReport } from '../api/resolveApi.js';
+import { resolveSongs, resolveSongsStream, commitToPlaylist, buildImportReport, summarizeRun } from '../api/resolveApi.js';
 import './importPipeline.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
@@ -105,6 +105,12 @@ export default function ImportPipeline({ isLoggedIn }) {
   const [resolveResults, setResolveResults] = useState([]);     // ResolvedMatch[]
   const [batchProgress,  setBatchProgress]  = useState({ completed: 0, total: 0 });
   const [retryNotice,    setRetryNotice]    = useState(null);
+
+  // ── Phase 14: observability ─────────────────────────────────────────────
+  // sessionLogs: one entry per resolved song: { rawText, queryRung, topCandidateScore, cacheHit, latencyMs }
+  // runMetrics:  the summarized output of summarizeRun(), displayed in the report
+  const [sessionLogs,  setSessionLogs]  = useState([]);
+  const [runMetrics,   setRunMetrics]   = useState(null);
 
   // ── Step 3: preview ──────────────────────────────────────────────────────
 
@@ -193,6 +199,12 @@ export default function ImportPipeline({ isLoggedIn }) {
     setRetryNotice(null);
     setBatchProgress({ completed: 0, total: songs.length });
     setResolveResults([]);
+    setSessionLogs([]);
+    setRunMetrics(null);
+
+    // Phase 14: accumulate per-song logs and 429 retry count in-closure
+    const collectedLogs = [];
+    let totalRetries = 0;
 
     try {
       const token = await getValidAccessToken();
@@ -206,13 +218,25 @@ export default function ImportPipeline({ isLoggedIn }) {
             setBatchProgress({ completed: event.completed, total: event.total });
           }
           if (event.type === 'retry') {
+            totalRetries += 1;
             setRetryNotice(event);
             setTimeout(() => {
               setRetryNotice((cur) => (cur === event ? null : cur));
             }, event.waitSeconds * 1000);
           }
           if (event.type === 'result') {
-            results[event.index] = event.result;
+            const r = event.result;
+            results[event.index] = r;
+            // Build per-song log entry from the result payload
+            if (r) {
+              collectedLogs[event.index] = {
+                rawText:           r.parsedSong?.rawText ?? r.parsedSong?.title ?? '',
+                queryRung:         r.queryRung ?? (r.fromCache ? 'cache' : 'search'),
+                topCandidateScore: r.chosen?.score?.final ?? (r.topCandidates?.[0]?.score?.final ?? 0),
+                cacheHit:          Boolean(r.fromCache),
+                latencyMs:         r.latencyMs ?? 0,
+              };
+            }
             // Incremental update so the progress is visible
             setResolveResults([...results]);
           }
@@ -222,6 +246,11 @@ export default function ImportPipeline({ isLoggedIn }) {
         },
         null, // no 429 simulation in the import pipeline
       );
+
+      // Phase 14: finalise logs and compute run-level summary
+      const logs = collectedLogs.filter(Boolean);
+      setSessionLogs(logs);
+      setRunMetrics(summarizeRun(logs, songs, totalRetries));
 
       setResolveState('done');
       setDoneSteps((prev) => [...prev.filter((s) => s !== 'resolve'), 'resolve']);
@@ -752,6 +781,7 @@ export default function ImportPipeline({ isLoggedIn }) {
           ) : (
             <ReportView
               report={importReport}
+              runMetrics={runMetrics}
               playlistId={selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId}
               onRetry={handleRetryFailed}
               onReset={() => {
@@ -762,6 +792,8 @@ export default function ImportPipeline({ isLoggedIn }) {
                 setResolveState('idle');
                 setResolveResults([]);
                 setImportReport(null);
+                setSessionLogs([]);
+                setRunMetrics(null);
               }}
             />
           )}
@@ -783,7 +815,21 @@ function ReportThumb({ url, alt }) {
   return <div style={{ width: '48px', height: '48px', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '18px', flexShrink: 0 }}>♪</div>;
 }
 
-function ReportView({ report, playlistId, onRetry, onReset }) {
+function MetricCard({ label, value, sub }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '14px 10px', background: 'rgba(255,255,255,0.03)',
+      border: '1px solid var(--border)', borderRadius: '8px', gap: '4px',
+    }}>
+      <span style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text)', fontFamily: 'var(--mono)' }}>{value}</span>
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
+      {sub && <span style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.6 }}>{sub}</span>}
+    </div>
+  );
+}
+
+function ReportView({ report, runMetrics, playlistId, onRetry, onReset }) {
   const [activeTab, setActiveTab] = useState('added');
   const [copied, setCopied] = useState(false);
   
@@ -841,6 +887,42 @@ function ReportView({ report, playlistId, onRetry, onReset }) {
           </a>
         )}
       </div>
+
+      {/* ── Phase 14: Run-level observability metrics dashboard ── */}
+      {runMetrics && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontFamily: 'var(--mono)' }}>
+            Run metrics
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '8px',
+          }}>
+            <MetricCard
+              label="Avg latency"
+              value={`${runMetrics.avgLatencyMs}ms`}
+            />
+            <MetricCard
+              label="Avg confidence"
+              value={`${runMetrics.avgTopConfidence}%`}
+            />
+            <MetricCard
+              label="Cache hit rate"
+              value={`${Math.round(runMetrics.cacheHitRate * 100)}%`}
+              sub={runMetrics.cacheHitRate >= 0.9 ? '✓ cache working' : null}
+            />
+            <MetricCard
+              label="LLM fallback"
+              value={`${Math.round(runMetrics.llmFallbackRate * 100)}%`}
+            />
+            <MetricCard
+              label="429 retries"
+              value={runMetrics.retryCount}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Tabs Header */}
       <div style={{

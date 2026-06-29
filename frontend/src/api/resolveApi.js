@@ -295,3 +295,62 @@ export function buildImportReport(resolvedMatches, duplicateInfo, commitResult) 
     }
   };
 }
+
+/**
+ * Compute run-level observability metrics from the per-song resolution logs
+ * collected during a stream run and the parse-method tags from Phase 2/3.
+ *
+ * @param {Array<{
+ *   rawText: string,
+ *   queryRung: string,
+ *   topCandidateScore: number,
+ *   cacheHit: boolean,
+ *   latencyMs: number
+ * }>} logs — one entry per resolved song, in resolution order
+ *
+ * @param {Array<{ parseMethod?: string }>} parsedSongs
+ *   — the array extracted in Phase 2/3 (may contain parseMethod:'llm'|'heuristic')
+ *
+ * @param {number} retryCount — total 429 retries observed during this run
+ *
+ * @returns {{
+ *   avgLatencyMs: number,
+ *   avgTopConfidence: number,
+ *   cacheHitRate: number,
+ *   llmFallbackRate: number,
+ *   retryCount: number
+ * }}
+ */
+export function summarizeRun(logs = [], parsedSongs = [], retryCount = 0) {
+  try {
+    const n = logs.length;
+
+    const avgLatencyMs = n
+      ? Math.round(logs.reduce((sum, l) => sum + (l.latencyMs ?? 0), 0) / n)
+      : 0;
+
+    const avgTopConfidence = n
+      ? Math.round(
+          (logs.reduce((sum, l) => sum + (l.topCandidateScore ?? 0), 0) / n) * 10
+        ) / 10
+      : 0;
+
+    const cacheHits = logs.filter((l) => l.cacheHit === true).length;
+    const cacheHitRate = n ? Math.round((cacheHits / n) * 100) / 100 : 0;
+
+    const total = parsedSongs.length;
+    const llmCount = parsedSongs.filter((s) => s?.parseMethod === 'llm').length;
+    const llmFallbackRate = total ? Math.round((llmCount / total) * 100) / 100 : 0;
+
+    return {
+      avgLatencyMs,
+      avgTopConfidence,
+      cacheHitRate,
+      llmFallbackRate,
+      retryCount: retryCount ?? 0,
+    };
+  } catch (err) {
+    console.warn('[summarizeRun] Failed to compute metrics:', err);
+    return { avgLatencyMs: 0, avgTopConfidence: 0, cacheHitRate: 0, llmFallbackRate: 0, retryCount: 0 };
+  }
+}
