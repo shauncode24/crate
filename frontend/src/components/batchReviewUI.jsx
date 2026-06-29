@@ -226,6 +226,21 @@ export default function BatchReviewUI({ items, onManualSearch, onConfirmAll, exa
     });
   }, []);
 
+  const handleSelectAllHighest = useCallback(() => {
+    setSelections((prev) => {
+      const next = { ...prev };
+      items.forEach(({ match, originalIndex }) => {
+        const options = match.topCandidates?.length
+          ? match.topCandidates
+          : (match.allCandidates ?? []).slice(0, 3);
+        if (options && options.length > 0) {
+          next[originalIndex] = { type: 'candidate', candidate: options[0] };
+        }
+      });
+      return next;
+    });
+  }, [items]);
+
   const allSelected   = items.length > 0 && items.every(({ originalIndex }) => Boolean(selections[originalIndex]));
   const pendingCount  = items.filter(({ originalIndex }) => !selections[originalIndex]).length;
 
@@ -244,6 +259,15 @@ export default function BatchReviewUI({ items, onManualSearch, onConfirmAll, exa
 
   return (
     <div className="brv">
+      <div className="brv-toolbar">
+        <button
+          type="button"
+          className="brv-batch-btn"
+          onClick={handleSelectAllHighest}
+        >
+          ✨ Select all highest rated candidates
+        </button>
+      </div>
       <ul className="brv-list">
         {items.map((entry) => (
           <SongReview

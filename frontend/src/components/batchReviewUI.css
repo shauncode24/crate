@@ -164,3 +164,29 @@
 .brv-confirm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .brv-confirm-btn--unlocked { background: var(--accent); color: #fff; border-color: var(--accent); }
 .brv-confirm-btn--unlocked:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, #000); box-shadow: var(--shadow); }
+
+.brv-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 14px;
+}
+
+.brv-batch-btn {
+  font: 13px/1 var(--mono);
+  padding: 8px 14px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-h);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.brv-batch-btn:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
