@@ -59,6 +59,7 @@ const STEPS = [
   { id: 'input',   label: 'Paste songs'    },
   { id: 'resolve', label: 'Spotify search' },
   { id: 'preview', label: 'Review & confirm' },
+  { id: 'report',  label: 'Import report'  },
 ];
 
 // ── Step breadcrumb ───────────────────────────────────────────────────────────
@@ -119,6 +120,11 @@ export default function ImportPipeline({ isLoggedIn }) {
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [exactTrackIds, setExactTrackIds] = useState([]);
   const [nearDuplicateTrackIds, setNearDuplicateTrackIds] = useState({});
+  const [succeededUris, setSucceededUris] = useState([]);
+  const [failedUris, setFailedUris] = useState([]);
+  const [commitState, setCommitState] = useState('idle');
+  const [existingTrackIds, setExistingTrackIds] = useState(new Set());
+  const [deduplicateEnabled, setDeduplicateEnabled] = useState(true);
 
   // Fetch user playlists when resolution completes
   useEffect(() => {
@@ -242,6 +248,16 @@ export default function ImportPipeline({ isLoggedIn }) {
     if (!playlistId) {
       setExactTrackIds([]);
       setNearDuplicateTrackIds({});
+      setExistingTrackIds(new Set());
+      setActiveStep('preview');
+      setDoneSteps((prev) => [...new Set([...prev, 'resolve'])]);
+      return;
+    }
+
+    if (!deduplicateEnabled) {
+      setExactTrackIds([]);
+      setNearDuplicateTrackIds({});
+      setExistingTrackIds(new Set());
       setActiveStep('preview');
       setDoneSteps((prev) => [...new Set([...prev, 'resolve'])]);
       return;
@@ -291,6 +307,7 @@ export default function ImportPipeline({ isLoggedIn }) {
           return match;
         })
       );
+      setExistingTrackIds(new Set(existingTracks.map(t => t.id).filter(Boolean)));
     } catch (err) {
       console.error("Duplicate check error:", err);
       setExactTrackIds([]);
@@ -304,11 +321,140 @@ export default function ImportPipeline({ isLoggedIn }) {
 
   // ── Step 3: confirm ───────────────────────────────────────────────────────
 
-  function handleConfirm(matches) {
+  async function handleConfirm(matches) {
     setFinalMatches(matches);
     setDoneSteps((prev) => [...new Set([...prev, 'preview'])]);
-    // Phase 10: commit pipeline will receive `matches` here.
-    console.log('[ImportPipeline] Commit pipeline entry point — matches:', matches);
+    setCommitState('running');
+    setActiveStep('report');
+
+    const activeMatches = (matches ?? []).filter(
+      (m) => m && m.status !== 'skipped' && m.chosen && m.chosen.id
+    );
+
+    // Idempotency: filter out tracks that are already in the target playlist
+    const tracksToCommit = activeMatches.filter((m) => !existingTrackIds.has(m.chosen.id));
+
+    if (tracksToCommit.length === 0) {
+      setCommitState('done');
+      setSucceededUris([]);
+      setFailedUris([]);
+      return;
+    }
+
+    const commitItems = tracksToCommit.map((m) => ({
+      uri: m.chosen.uri || `spotify:track:${m.chosen.id}`,
+      title: m.chosen.title,
+      artist: m.chosen.artists || m.chosen.artist || 'Unknown Artist',
+    }));
+
+    try {
+      const token = await getValidAccessToken();
+      let playlistId = selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId;
+      
+      // Dynamic playlist creation if no target playlist is selected
+      if (!playlistId) {
+        const userRes = await fetch("https://api.spotify.com/v1/me", {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!userRes.ok) throw new Error("Could not retrieve Spotify profile to create a new playlist.");
+        const userData = await userRes.json();
+        const userId = userData.id;
+
+        const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        const plRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: `Crate Import — ${dateStr}`,
+            description: 'Imported via Crate',
+            public: false
+          })
+        });
+        if (!plRes.ok) throw new Error("Failed to create new playlist on Spotify.");
+        const plData = await plRes.json();
+        playlistId = plData.id;
+        
+        // Persist the new playlist ID in state so the report link and retry operations target it correctly
+        setSelectedPlaylistId(playlistId);
+      }
+
+      const uris = commitItems.map((item) => item.uri);
+      const result = await import('../api/resolveApi.js').then((m) =>
+        m.commitToPlaylist(token, playlistId, uris)
+      );
+
+      const newlySucceeded = [];
+      const newlyFailed = [];
+      const chunkSize = 100;
+
+      result.succeededChunks.forEach((idx) => {
+        newlySucceeded.push(...commitItems.slice(idx * chunkSize, idx * chunkSize + chunkSize));
+      });
+
+      result.failedChunks.forEach((f) => {
+        const chunkItems = commitItems.slice(f.index * chunkSize, f.index * chunkSize + chunkSize);
+        newlyFailed.push(...chunkItems.map((item) => ({ ...item, error: f.error })));
+      });
+
+      setSucceededUris(newlySucceeded);
+      setFailedUris(newlyFailed);
+      setCommitState('done');
+    } catch (err) {
+      console.error('Commit failed:', err);
+      setFailedUris(
+        commitItems.map((item) => ({
+          ...item,
+          error: err.message || 'Verification or network error',
+        }))
+      );
+      setCommitState('done');
+    }
+  }
+
+  async function handleRetryFailed() {
+    if (failedUris.length === 0) return;
+    setCommitState('running');
+
+    const retryItems = [...failedUris];
+    const uris = retryItems.map((item) => item.uri);
+    const chunkSize = 100;
+
+    try {
+      const token = await getValidAccessToken();
+      const playlistId = selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId;
+
+      const result = await import('../api/resolveApi.js').then((m) =>
+        m.commitToPlaylist(token, playlistId, uris)
+      );
+
+      const newlySucceeded = [];
+      const newlyFailed = [];
+
+      result.succeededChunks.forEach((idx) => {
+        newlySucceeded.push(...retryItems.slice(idx * chunkSize, idx * chunkSize + chunkSize));
+      });
+
+      result.failedChunks.forEach((f) => {
+        const chunkItems = retryItems.slice(f.index * chunkSize, f.index * chunkSize + chunkSize);
+        newlyFailed.push(...chunkItems.map((item) => ({ ...item, error: f.error })));
+      });
+
+      setSucceededUris((prev) => [...prev, ...newlySucceeded]);
+      setFailedUris(newlyFailed);
+      setCommitState('done');
+    } catch (err) {
+      console.error('Retry failed:', err);
+      setCommitState('done');
+      setFailedUris((prev) =>
+        prev.map((item) => ({
+          ...item,
+          error: err.message || 'Retry verification or network error',
+        }))
+      );
+    }
   }
 
   // ── Derived counts ─────────────────────────────────────────────────────────
@@ -458,7 +604,7 @@ export default function ImportPipeline({ isLoggedIn }) {
             <>
               <div className="ip-playlist-selector" style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                  Target playlist for duplicate checking:
+                  Target Spotify Playlist:
                 </label>
                 {loadingPlaylists ? (
                   <div style={{ color: 'var(--text-muted)' }}>Loading your playlists...</div>
@@ -476,7 +622,7 @@ export default function ImportPipeline({ isLoggedIn }) {
                       value={selectedPlaylistId}
                       onChange={(e) => setSelectedPlaylistId(e.target.value)}
                     >
-                      <option value="">-- No duplicate checking (skip) --</option>
+                      <option value="">-- No target playlist (optional) --</option>
                       <option value="custom">-- Enter Playlist ID manually --</option>
                       {playlists.map((pl) => (
                         <option key={pl.id} value={pl.id}>
@@ -501,6 +647,14 @@ export default function ImportPipeline({ isLoggedIn }) {
                         onChange={(e) => setCustomPlaylistId(e.target.value.trim())}
                       />
                     )}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', marginTop: '6px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                      <input
+                        type="checkbox"
+                        checked={deduplicateEnabled}
+                        onChange={(e) => setDeduplicateEnabled(e.target.checked)}
+                      />
+                      Check playlist for duplicates before importing
+                    </label>
                   </div>
                 )}
               </div>
@@ -512,7 +666,7 @@ export default function ImportPipeline({ isLoggedIn }) {
                 <button
                   className="ip-preview-btn"
                   onClick={enterPreview}
-                  disabled={checkingDuplicates}
+                  disabled={checkingDuplicates || (selectedPlaylistId === 'custom' && !customPlaylistId)}
                 >
                   {checkingDuplicates ? 'Checking duplicates...' : 'Review & confirm →'}
                 </button>
@@ -566,8 +720,155 @@ export default function ImportPipeline({ isLoggedIn }) {
           }}
           exactTrackIds={exactTrackIds}
           nearDuplicateTrackIds={nearDuplicateTrackIds}
+          hasPlaylist={Boolean(selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId)}
         />
       )}
+
+      {/* ── Step 4: Import report ── */}
+      {activeStep === 'report' && (
+        <section className="ip-report-section" style={{ padding: '24px 0' }}>
+          {commitState === 'running' ? (
+            <div className="ip-commit-loading" style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '8px', maxWidth: '600px', margin: '0 auto' }}>
+              <div className="spinner" style={{ marginBottom: '16px', fontSize: '32px', animation: 'spin 2s linear infinite' }}>⏳</div>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '20px' }}>Adding songs to Spotify...</h2>
+              <p style={{ color: 'var(--text-muted)', margin: '0' }}>Please don't close or refresh this page.</p>
+            </div>
+          ) : (
+            <ImportReport
+              succeeded={succeededUris}
+              failed={failedUris}
+              playlistId={selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId}
+              onRetry={handleRetryFailed}
+              onReset={() => {
+                setActiveStep('input');
+                setDoneSteps([]);
+                setExtractState('idle');
+                setSongs([]);
+                setResolveState('idle');
+                setResolveResults([]);
+                setSucceededUris([]);
+                setFailedUris([]);
+              }}
+            />
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function ImportReport({ succeeded, failed, playlistId, onRetry, onReset }) {
+  const hasFailures = failed.length > 0;
+  const playlistUrl = playlistId ? `https://open.spotify.com/playlist/${playlistId}` : null;
+
+  return (
+    <div className="ip-report">
+      <div className="ip-report__card" style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        padding: '24px',
+        maxWidth: '600px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>
+            {hasFailures ? '⚠' : '✓'}
+          </span>
+          <h2 style={{ fontSize: '24px', margin: '0 0 8px 0', color: hasFailures ? 'var(--text)' : '#16a34a' }}>
+            {hasFailures ? 'Import completed with warnings' : 'Import successful!'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', margin: '0' }}>
+            {succeeded.length} song{succeeded.length !== 1 ? 's' : ''} added to your playlist.
+          </p>
+        </div>
+
+        {playlistUrl && succeeded.length > 0 && (
+          <a
+            href={playlistUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ip-preview-btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+              textAlign: 'center',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          >
+            Open playlist on Spotify ↗
+          </a>
+        )}
+
+        {hasFailures && (
+          <div style={{
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            background: 'rgba(239, 68, 68, 0.05)',
+            borderRadius: '6px',
+            padding: '16px'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#ef4444' }}>
+              Failed Tracks ({failed.length})
+            </h3>
+            <ul style={{
+              margin: '0',
+              padding: '0 0 0 20px',
+              fontSize: '13px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              color: 'var(--text)',
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              {failed.map((f, i) => (
+                <li key={i}>
+                  <strong>{f.title}</strong> {f.artist && `— ${f.artist}`}
+                  <div style={{ fontSize: '11px', color: '#ef4444', fontStyle: 'italic', marginTop: '2px' }}>
+                    Reason: {f.error}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={onRetry}
+              className="ip-preview-btn"
+              style={{
+                marginTop: '16px',
+                background: '#ef4444',
+                borderColor: '#ef4444',
+                color: '#fff',
+                width: '100%',
+                cursor: 'pointer'
+              }}
+            >
+              Retry Failed Chunks
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={onReset}
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            color: 'var(--text)',
+            padding: '10px 16px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            width: '100%'
+          }}
+        >
+          Import another list
+        </button>
+      </div>
     </div>
   );
 }

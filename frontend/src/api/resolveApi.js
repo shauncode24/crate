@@ -108,3 +108,77 @@ export async function resolveSongsStream(songs, spotifyAccessToken, onEvent, sim
   }
   if (buffer.trim()) onEvent(JSON.parse(buffer.trim()));
 }
+
+/**
+ * Commit a list of track URIs to a target Spotify playlist in chunks of at most 100 tracks.
+ * Catches errors per chunk so that one failing chunk does not abort the rest.
+ * On 401 Unauthorized, automatically refreshes the token once and retries the chunk.
+ *
+ * @param {string} initialToken - User's Spotify OAuth access token
+ * @param {string} playlistId - ID of the target Spotify playlist
+ * @param {Array<string>} trackUris - Array of track URIs (e.g. ["spotify:track:xxxx", ...])
+ * @returns {Promise<{ succeededChunks: number[], failedChunks: Array<{ index: number, error: string }> }>}
+ */
+export async function commitToPlaylist(initialToken, playlistId, trackUris) {
+  const chunkSize = 100;
+  const chunks = [];
+  for (let i = 0; i < trackUris.length; i += chunkSize) {
+    chunks.push(trackUris.slice(i, i + chunkSize));
+  }
+
+  let token = initialToken;
+  const succeededChunks = [];
+  const failedChunks = [];
+
+  for (let idx = 0; idx < chunks.length; idx++) {
+    const chunk = chunks[idx];
+    let attempt = 0;
+    let success = false;
+    let lastError = '';
+
+    while (attempt < 2 && !success) {
+      attempt++;
+      try {
+        const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ uris: chunk })
+        });
+
+        if (res.status === 401) {
+          if (attempt === 1) {
+            // Re-import dynamically to avoid circular dependencies or load failures
+            const { getValidAccessToken } = await import('../auth/spotifyAuth.js');
+            token = await getValidAccessToken();
+            continue; // retry with new token
+          } else {
+            throw new Error('Spotify session expired. Please log in again.');
+          }
+        }
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error?.message ?? `Spotify API error ${res.status}`);
+        }
+
+        success = true;
+        succeededChunks.push(idx);
+      } catch (err) {
+        lastError = err.message || 'Unknown network error';
+        if (attempt >= 2 || token === initialToken) {
+          // If we got here and didn't retry (or already retried), it failed.
+          break;
+        }
+      }
+    }
+
+    if (!success) {
+      failedChunks.push({ index: idx, error: lastError });
+    }
+  }
+
+  return { succeededChunks, failedChunks };
+}

@@ -315,9 +315,21 @@ function MissingSection({ items }) {
 
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
-function SummaryBar({ readyCount, reviewPendingCount, missingCount, onConfirm, confirmed }) {
+function SummaryBar({ readyCount, reviewPendingCount, missingCount, onConfirm, confirmed, hasPlaylist = true }) {
   const canConfirm = reviewPendingCount === 0 && !confirmed;
   const total = readyCount + missingCount; // items that will be added
+
+  const buttonText = confirmed 
+    ? 'Imported ✓' 
+    : !hasPlaylist
+      ? `Import to New Playlist${total ? ` (${total})` : ''}`
+      : `Confirm Import${total ? ` (${total})` : ''}`;
+
+  const buttonTitle = reviewPendingCount > 0
+    ? `Resolve ${reviewPendingCount} remaining review item${reviewPendingCount !== 1 ? 's' : ''} first`
+    : !hasPlaylist
+      ? "Create a new playlist and import these tracks"
+      : "Import tracks to the selected playlist";
 
   return (
     <div className="drp-summary-bar">
@@ -343,13 +355,18 @@ function SummaryBar({ readyCount, reviewPendingCount, missingCount, onConfirm, c
         className={`drp-confirm-btn ${canConfirm ? 'drp-confirm-btn--unlocked' : ''}`}
         onClick={onConfirm}
         disabled={!canConfirm}
-        title={reviewPendingCount > 0 ? `Resolve ${reviewPendingCount} remaining review item${reviewPendingCount !== 1 ? 's' : ''} first` : ''}
+        title={buttonTitle}
       >
-        {confirmed ? 'Imported ✓' : `Confirm Import${total ? ` (${total})` : ''}`}
+        {buttonText}
       </button>
       {reviewPendingCount > 0 && (
         <span className="drp-confirm-hint">
           resolve {reviewPendingCount} to unlock
+        </span>
+      )}
+      {!hasPlaylist && (
+        <span className="drp-confirm-hint" style={{ color: 'var(--text-muted)' }}>
+          new playlist will be created
         </span>
       )}
     </div>
@@ -386,7 +403,7 @@ function ConfirmedState({ readyCount, onBack }) {
  * @param {function} onConfirm        — called with finalMatches once the user confirms
  * @param {function} [onBack]         — optional back navigation
  */
-export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onManualSearch, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
+export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onManualSearch, exactTrackIds = [], nearDuplicateTrackIds = {}, hasPlaylist = true }) {
   // Review state: { [originalIndex]: { resolved, chosen, skipped } }
   const [reviewState, setReviewState] = useState(() => {
     const initial = {};
@@ -485,6 +502,7 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
           missingCount={missingItems.length}
           onConfirm={handleConfirm}
           confirmed
+          hasPlaylist={hasPlaylist}
         />
         <ConfirmedState readyCount={finalReadyCount} onBack={onBack} />
       </div>
@@ -499,6 +517,7 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
         missingCount={missingItems.length}
         onConfirm={handleConfirm}
         confirmed={false}
+        hasPlaylist={hasPlaylist}
       />
 
       <ReadySection
