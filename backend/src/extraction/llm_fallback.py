@@ -1,5 +1,5 @@
 # Runs server-side so the API key never leaves the backend.
-# The frontend calls POST /api/parse/llm and gets back [{title, artist}].
+# The frontend calls POST /api/parse/llm and gets back {songs, playlistName, playlistDescription}.
 
 import json
 import os
@@ -17,11 +17,17 @@ def _load_system_prompt() -> str:
         return f.read().strip()
 
 
-async def extract_with_llm(raw_text: str) -> list[dict]:
+async def extract_with_llm(raw_text: str) -> dict:
     """
-    Sends raw_text to the Gemini API and returns extracted song entries.
+    Sends raw_text to the Gemini API and returns extracted song entries plus
+    a suggested playlist name and description — all in one LLM call.
 
-    Each entry: {"title": str, "artist": str | None}
+    Returns:
+        {
+            "songs": [{"title": str, "artist": str | None}],
+            "playlistName": str,
+            "playlistDescription": str,
+        }
 
     Raises:
         RuntimeError: if GEMINI_API_KEY is unset, the API call fails,
@@ -98,12 +104,22 @@ async def extract_with_llm(raw_text: str) -> list[dict]:
             f"LLM returned non-JSON. Raw output:\n{raw_content}"
         ) from exc
 
-    if not isinstance(parsed, list):
+    # ── Handle new object shape: {songs, playlistName, playlistDescription} ──
+    if isinstance(parsed, dict):
+        raw_songs = parsed.get("songs", [])
+        playlist_name = str(parsed.get("playlistName", "")).strip()
+        playlist_description = str(parsed.get("playlistDescription", "")).strip()
+    elif isinstance(parsed, list):
+        # Backwards-compat: bare list (old prompt / fallback)
+        raw_songs = parsed
+        playlist_name = ""
+        playlist_description = ""
+    else:
         raise RuntimeError(
-            f"LLM returned unexpected shape (expected list). Got: {cleaned}"
+            f"LLM returned unexpected shape. Got: {cleaned}"
         )
 
-    return [
+    songs = [
         {
             "title": entry["title"].strip(),
             "artist": (
@@ -112,8 +128,14 @@ async def extract_with_llm(raw_text: str) -> list[dict]:
                 else None
             ),
         }
-        for entry in parsed
+        for entry in raw_songs
         if isinstance(entry, dict)
         and isinstance(entry.get("title"), str)
         and entry["title"].strip()
     ]
+
+    return {
+        "songs": songs,
+        "playlistName": playlist_name,
+        "playlistDescription": playlist_description,
+    }

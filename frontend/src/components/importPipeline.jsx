@@ -98,6 +98,13 @@ export default function ImportPipeline({ isLoggedIn }) {
   const [extractState, setExtractState] = useState('idle'); // idle | loading | done | error
   const [extractError, setExtractError] = useState(null);
 
+  // Phase 16: AI-suggested playlist name & description (editable by user)
+  const [suggestedName, setSuggestedName] = useState('');
+  const [suggestedDesc, setSuggestedDesc] = useState('');
+  // pendingMatches: set when user clicks "Confirm All" in DryRunPreview,
+  // cleared once handleConfirm() fires. While non-null, the naming panel is shown.
+  const [pendingMatches, setPendingMatches] = useState(null);
+
   // ── Step 2: resolution ───────────────────────────────────────────────────
 
   const [resolveState,   setResolveState]   = useState('idle'); // idle | running | done | error
@@ -164,18 +171,23 @@ export default function ImportPipeline({ isLoggedIn }) {
     setExtractState('loading');
     setExtractError(null);
     setSongs([]);
+    setSuggestedName('');
+    setSuggestedDesc('');
     setResolveState('idle');
     setResolveResults([]);
     setDoneSteps([]);
 
     try {
-      const extracted = await extractSongs(rawInput);
+      const result = await extractSongs(rawInput);
+      const { songs: extracted, playlistName, playlistDescription } = result;
       const lines = rawInput.split('\n').map((l) => l.trim()).filter(Boolean);
       const withRaw = extracted.map((song, i) => ({
         ...song,
         rawText: lines[i] ?? rawInput,
       }));
       setSongs(withRaw);
+      setSuggestedName(playlistName || '');
+      setSuggestedDesc(playlistDescription || '');
       setExtractState('done');
       setActiveStep('resolve');
       setDoneSteps(['input']);
@@ -394,7 +406,9 @@ export default function ImportPipeline({ isLoggedIn }) {
         const userData = await userRes.json();
         const userId = userData.id;
 
-        const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        // Use the AI-suggested name/description (possibly edited by user)
+        const finalName = suggestedName.trim() || `Crate Import — ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        const finalDesc = suggestedDesc.trim() || 'Imported via Crate';
         const plRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
           method: 'POST',
           headers: {
@@ -402,8 +416,8 @@ export default function ImportPipeline({ isLoggedIn }) {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            name: `Crate Import — ${dateStr}`,
-            description: 'Imported via Crate',
+            name: finalName,
+            description: finalDesc,
             public: false
           })
         });
@@ -584,6 +598,9 @@ export default function ImportPipeline({ isLoggedIn }) {
                 setDoneSteps([]);
                 setExtractState('idle');
                 setSongs([]);
+                setSuggestedName('');
+                setSuggestedDesc('');
+                setPendingMatches(null);
                 setResolveState('idle');
                 setResolveResults([]);
               }}
@@ -647,7 +664,9 @@ export default function ImportPipeline({ isLoggedIn }) {
 
           {resolveState === 'done' && (
             <>
+
               <div className="ip-playlist-selector" style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+
                 <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
                   Target Spotify Playlist:
                 </label>
@@ -755,18 +774,132 @@ export default function ImportPipeline({ isLoggedIn }) {
 
       {/* ── Step 3: dry-run preview ── */}
       {activeStep === 'preview' && (
-        <DryRunPreview
-          resolvedMatches={resolveResults}
-          onConfirm={handleConfirm}
-          onManualSearch={handleManualSearch}
-          onBack={() => {
-            setActiveStep('resolve');
-            setDoneSteps((prev) => prev.filter((s) => s !== 'preview'));
-          }}
-          exactTrackIds={exactTrackIds}
-          nearDuplicateTrackIds={nearDuplicateTrackIds}
-          hasPlaylist={Boolean(selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId)}
-        />
+        pendingMatches ? (
+          /* ── Phase 16: naming panel — shown after "Confirm All", before the commit ── */
+          <section style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 0' }}>
+            <div style={{
+              padding: '20px 22px',
+              background: 'rgba(139,92,246,0.06)',
+              border: '1px solid rgba(139,92,246,0.25)',
+              borderRadius: '10px',
+              marginBottom: '16px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '20px' }}>✨</span>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>Name your playlist</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--mono)', marginTop: '2px' }}>AI-suggested based on your track list — edit freely</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontFamily: 'var(--mono)', color: 'var(--text-muted)', marginBottom: '5px', letterSpacing: '0.04em' }}>
+                    PLAYLIST NAME
+                  </label>
+                  <input
+                    type="text"
+                    value={suggestedName}
+                    onChange={(e) => setSuggestedName(e.target.value)}
+                    placeholder="Playlist name..."
+                    maxLength={100}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(139,92,246,0.35)',
+                      background: 'var(--bg)',
+                      color: 'var(--text)',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontFamily: 'var(--mono)', color: 'var(--text-muted)', marginBottom: '5px', letterSpacing: '0.04em' }}>
+                    DESCRIPTION
+                  </label>
+                  <input
+                    type="text"
+                    value={suggestedDesc}
+                    onChange={(e) => setSuggestedDesc(e.target.value)}
+                    placeholder="One-line description..."
+                    maxLength={200}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(139,92,246,0.35)',
+                      background: 'var(--bg)',
+                      color: 'var(--text)',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                {!selectedPlaylistId && (
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                    This will be the name & description of your new Spotify playlist.
+                  </p>
+                )}
+                {selectedPlaylistId && (
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                    You’re adding to an existing playlist — name & description won’t be applied.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPendingMatches(null)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--text)',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                ← Back to review
+              </button>
+              <button
+                onClick={() => { handleConfirm(pendingMatches); setPendingMatches(null); }}
+                style={{
+                  flex: 2,
+                  padding: '10px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                Finalize import →
+              </button>
+            </div>
+          </section>
+        ) : (
+          <DryRunPreview
+            resolvedMatches={resolveResults}
+            onConfirm={(matches) => setPendingMatches(matches)}
+            onManualSearch={handleManualSearch}
+            onBack={() => {
+              setActiveStep('resolve');
+              setDoneSteps((prev) => prev.filter((s) => s !== 'preview'));
+            }}
+            exactTrackIds={exactTrackIds}
+            nearDuplicateTrackIds={nearDuplicateTrackIds}
+            hasPlaylist={Boolean(selectedPlaylistId === 'custom' ? customPlaylistId : selectedPlaylistId)}
+          />
+        )
       )}
 
       {/* ── Step 4: Import report ── */}
@@ -789,6 +922,9 @@ export default function ImportPipeline({ isLoggedIn }) {
                 setDoneSteps([]);
                 setExtractState('idle');
                 setSongs([]);
+                setSuggestedName('');
+                setSuggestedDesc('');
+                setPendingMatches(null);
                 setResolveState('idle');
                 setResolveResults([]);
                 setImportReport(null);

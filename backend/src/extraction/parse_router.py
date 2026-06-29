@@ -26,6 +26,8 @@ class Song(BaseModel):
 
 class ParseLLMResponse(BaseModel):
     songs: list[Song]
+    playlistName: str = ""
+    playlistDescription: str = ""
 
 
 @router.post("/parse/llm", response_model=ParseLLMResponse)
@@ -33,11 +35,19 @@ async def parse_llm(body: ParseLLMRequest) -> ParseLLMResponse:
     """
     POST /api/parse/llm
     Body:    { "raw_text": "..." }
-    Returns: { "songs": [{ "title": "...", "artist": "..." | null }] }
+    Returns: {
+        "songs": [{ "title": "...", "artist": "..." | null }],
+        "playlistName": "Short evocative name",
+        "playlistDescription": "One-line description."
+    }
     """
     try:
-        songs = await extract_with_llm(body.raw_text)
+        result = await extract_with_llm(body.raw_text)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return ParseLLMResponse(songs=[Song(**s) for s in songs])
+    return ParseLLMResponse(
+        songs=[Song(**s) for s in result["songs"]],
+        playlistName=result.get("playlistName", ""),
+        playlistDescription=result.get("playlistDescription", ""),
+    )
