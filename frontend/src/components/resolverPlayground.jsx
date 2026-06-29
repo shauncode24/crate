@@ -58,15 +58,13 @@ function BucketBadge({ status }) {
 
 // ── Score breakdown (collapsible) ────────────────────────────────────────────
 
+// Components returned by the backend scorer (each 0–1).
+// weight: each component's contribution to the weighted average.
 const COMPONENTS = [
-  { key: 'titleMatch',      label: 'title',    max: 45, color: 'var(--score-title)'   },
-  { key: 'artistMatch',     label: 'artist',   max: 35, color: 'var(--score-artist)'  },
-  { key: 'albumMatch',      label: 'album',    max: 10, color: 'var(--score-album)'   },
-  { key: 'popularity',      label: 'pop',      max: 5,  color: 'var(--score-pop)'     },
-  { key: 'modifierPenalty', label: 'modifier', max: 0,  color: 'var(--score-penalty)' },
+  { key: 'title',      label: 'title',      weight: 0.40, color: 'var(--score-title)'  },
+  { key: 'artist',     label: 'artist',     weight: 0.25, color: 'var(--score-artist)' },
+  { key: 'popularity', label: 'popularity', weight: 0.35, color: 'var(--score-pop)'    },
 ];
-
-const SCORE_BUDGET = 95;
 
 function ScoreBreakdown({ score, showScorerTag }) {
   const [open, setOpen] = useState(false);
@@ -74,7 +72,7 @@ function ScoreBreakdown({ score, showScorerTag }) {
   const band =
     score.final >= AUTO_ACCEPT_THRESHOLD ? 'strong'
     : score.final >= REVIEW_FLOOR        ? 'likely'
-    : score.final >= 30                  ? 'weak'
+    : score.final >= 0.30                ? 'weak'
     : 'poor';
 
   return (
@@ -88,20 +86,22 @@ function ScoreBreakdown({ score, showScorerTag }) {
         <span className="score-final">{score.final}</span>
         <span className={`score-band score-band--${band}`}>{band}</span>
         <div className="score-bar" aria-hidden="true">
-          {COMPONENTS.filter((c) => c.key !== 'modifierPenalty').map((c) => {
-            const val = Math.max(0, score[c.key]);
+          {COMPONENTS.map((c) => {
+            // Each segment width = component_value × its weight (contribution to final)
+            const contribution = Math.max(0, score[c.key]) * c.weight;
             return (
               <div
                 key={c.key}
                 className="score-bar__seg"
-                style={{ width: `${(val / SCORE_BUDGET) * 100}%`, background: c.color }}
+                style={{ width: `${contribution * 100}%`, background: c.color }}
               />
             );
           })}
-          {score.modifierPenalty < 0 && (
+          {score.modifierFactor < 1 && (
             <div
               className="score-bar__penalty"
-              style={{ width: `${(Math.abs(score.modifierPenalty) / SCORE_BUDGET) * 100}%` }}
+              style={{ width: `${(1 - score.modifierFactor) * score.final * 100}%` }}
+              title={`Modifier penalty (×${score.modifierFactor})`}
             />
           )}
         </div>
@@ -111,26 +111,30 @@ function ScoreBreakdown({ score, showScorerTag }) {
         <table className="score-table" cellSpacing={0}>
           <tbody>
             {COMPONENTS.map((c) => {
-              const val = score[c.key];
-              const isNeg = val < 0;
-              const pct = c.max > 0 ? Math.round((Math.max(0, val) / c.max) * 100) : 0;
+              const val = Math.max(0, score[c.key]);
+              const pct = Math.round(val * 100);
               return (
-                <tr key={c.key} className={isNeg ? 'score-row--penalty' : ''}>
+                <tr key={c.key}>
                   <td className="score-row__label">{c.label}</td>
                   <td className="score-row__bar-cell">
-                    {c.max > 0 && (
-                      <div className="score-row__track">
-                        <div className="score-row__fill" style={{ width: `${pct}%`, background: c.color }} />
-                      </div>
-                    )}
+                    <div className="score-row__track">
+                      <div className="score-row__fill" style={{ width: `${pct}%`, background: c.color }} />
+                    </div>
                   </td>
-                  <td className={`score-row__val ${isNeg ? 'score-row__val--neg' : ''}`}>
-                    {isNeg ? fmt(val) : `+${fmt(val)}`}
-                    {c.max > 0 && <span className="score-row__max"> / {c.max}</span>}
+                  <td className="score-row__val">
+                    {pct}%
+                    <span className="score-row__max"> ×{c.weight}</span>
                   </td>
                 </tr>
               );
             })}
+            {score.modifierFactor < 1 && (
+              <tr className="score-row--penalty">
+                <td className="score-row__label">modifier</td>
+                <td className="score-row__bar-cell" />
+                <td className="score-row__val score-row__val--neg">×{score.modifierFactor}</td>
+              </tr>
+            )}
             <tr className="score-row--total">
               <td className="score-row__label">final</td>
               <td />
@@ -434,10 +438,14 @@ export default function ResolverPlayground({ isLoggedIn }) {
         <div className="rp-legend-items">
           {COMPONENTS.map((c) => (
             <div key={c.key} className="rp-legend-item">
-              {c.max > 0 ? <span className="legend-swatch" style={{ background: c.color }} /> : <span className="legend-swatch legend-swatch--penalty" />}
-              <span>{c.label}{c.max > 0 ? ` (0–${c.max} pts)` : ` (−15 if live/remix and not requested)`}</span>
+              <span className="legend-swatch" style={{ background: c.color }} />
+              <span>{c.label} (weight {c.weight})</span>
             </div>
           ))}
+          <div className="rp-legend-item">
+            <span className="legend-swatch legend-swatch--penalty" />
+            <span>modifier ×0.60 if live/remix not requested</span>
+          </div>
         </div>
         <span className="rp-step-label" style={{ marginTop: 16 }}>query ladder</span>
         <div className="rp-legend-items">

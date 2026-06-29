@@ -13,8 +13,8 @@ from __future__ import annotations
 
 # ── Tunable thresholds (mirrors matchConfig.js) ───────────────────────────────
 
-AUTO_ACCEPT_THRESHOLD = 80
-REVIEW_FLOOR          = 50
+AUTO_ACCEPT_THRESHOLD  = 0.80
+REVIEW_FLOOR           = 0.50
 REVIEW_CANDIDATE_COUNT = 3
 
 

@@ -1,10 +1,11 @@
 /**
  * matchConfig.js — UI display constants only.
  *
- * The actual bucketing logic and these threshold values now live in
- * backend/src/resolution/matcher.py. These copies exist solely so the
- * frontend can colour-code badges and legend text without an extra API call.
- * If you change the thresholds in matcher.py, update these too.
+ * Scoring logic and these thresholds live in backend/src/resolution/matcher.py.
+ * These copies exist solely so the frontend can colour-code badges and legend
+ * text without an extra API call. Keep in sync with the backend values.
+ *
+ * Scale: 0–1
  */
-export const AUTO_ACCEPT_THRESHOLD = 80;
-export const REVIEW_FLOOR          = 50;
+export const AUTO_ACCEPT_THRESHOLD = 0.80;
+export const REVIEW_FLOOR          = 0.50;
