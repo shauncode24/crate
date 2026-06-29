@@ -7,7 +7,7 @@ import mockSongs from './mockSongs.json';
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 
 // Toggle this flag to switch between mock/testing and production API extraction.
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 /**
  * @param {string} rawText  — the full pasted block, as-is

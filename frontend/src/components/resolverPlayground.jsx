@@ -1,12 +1,9 @@
-import { useState, useCallback } from 'react';
-import { extractSongs }    from '../extraction/extract.js';
-import { SpotifyResolver } from '../resolver/spotifyResolver.js';
-import { rankCandidates }  from '../scorer/scorer.js';
-import { bucketMatch }     from '../matcher/matcher.js';
-import { AUTO_ACCEPT_THRESHOLD, REVIEW_FLOOR } from '../matcher/matchConfig.js';
+import { useState, useCallback, useEffect } from 'react';
+import { extractSongs }       from '../extraction/extract.js';
+import { getValidAccessToken } from '../auth/spotifyAuth.js';
+import { resolveSongs, getCacheState, clearCache } from '../api/resolveApi.js';
+import { AUTO_ACCEPT_THRESHOLD, REVIEW_FLOOR } from '../config/matchConfig.js';
 import './resolverPlayground.css';
-
-const resolver = new SpotifyResolver(8);
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -26,6 +23,7 @@ const RUNG_LABELS = {
   'field-qualified': { short: 'field', title: 'track:"…" artist:"…"' },
   'plain-combined':  { short: 'plain', title: '"title" "artist"'     },
   'title-only':      { short: 'title', title: '"title" only'          },
+  'cache':           { short: 'cache', title: 'Returned from server cache — no Spotify call made' },
 };
 
 function RungBadge({ rung }) {
@@ -44,8 +42,8 @@ function FlagBadge({ label, active }) {
 // ── Bucket badge ─────────────────────────────────────────────────────────────
 
 const BUCKET_META = {
-  auto:     { label: 'auto',      title: `Score ≥ ${AUTO_ACCEPT_THRESHOLD} — accepted without review` },
-  review:   { label: 'review',    title: `Score ≥ ${REVIEW_FLOOR} — needs a human pick`              },
+  auto:     { label: 'auto',      title: `Score >= ${AUTO_ACCEPT_THRESHOLD} — accepted without review` },
+  review:   { label: 'review',    title: `Score >= ${REVIEW_FLOOR} — needs a human pick`              },
   notfound: { label: 'not found', title: `Score < ${REVIEW_FLOOR} — no usable match`                 },
 };
 
@@ -70,7 +68,7 @@ const COMPONENTS = [
 
 const SCORE_BUDGET = 95;
 
-function ScoreBreakdown({ score, rank, showScorerTag }) {
+function ScoreBreakdown({ score, showScorerTag }) {
   const [open, setOpen] = useState(false);
 
   const band =
@@ -89,7 +87,6 @@ function ScoreBreakdown({ score, rank, showScorerTag }) {
         {showScorerTag && <span className="score-rank">top pick</span>}
         <span className="score-final">{score.final}</span>
         <span className={`score-band score-band--${band}`}>{band}</span>
-
         <div className="score-bar" aria-hidden="true">
           {COMPONENTS.filter((c) => c.key !== 'modifierPenalty').map((c) => {
             const val = Math.max(0, score[c.key]);
@@ -108,10 +105,8 @@ function ScoreBreakdown({ score, rank, showScorerTag }) {
             />
           )}
         </div>
-
         <span className="score-chevron">{open ? '▲' : '▼'}</span>
       </button>
-
       {open && (
         <table className="score-table" cellSpacing={0}>
           <tbody>
@@ -125,10 +120,7 @@ function ScoreBreakdown({ score, rank, showScorerTag }) {
                   <td className="score-row__bar-cell">
                     {c.max > 0 && (
                       <div className="score-row__track">
-                        <div
-                          className="score-row__fill"
-                          style={{ width: `${pct}%`, background: c.color }}
-                        />
+                        <div className="score-row__fill" style={{ width: `${pct}%`, background: c.color }} />
                       </div>
                     )}
                   </td>
@@ -153,7 +145,7 @@ function ScoreBreakdown({ score, rank, showScorerTag }) {
 
 // ── Candidate card ───────────────────────────────────────────────────────────
 
-function CandidateCard({ candidate, rank, isSelected, isReviewHighlight }) {
+function CandidateCard({ candidate, isSelected, isReviewHighlight }) {
   const cardClass = isSelected
     ? 'candidate-card--selected'
     : isReviewHighlight
@@ -165,11 +157,7 @@ function CandidateCard({ candidate, rank, isSelected, isReviewHighlight }) {
       <div className="candidate-row">
         <div className="candidate-info">
           {candidate.imageUrl && (
-            <img
-              className="candidate-image"
-              src={candidate.imageUrl}
-              alt={candidate.album}
-            />
+            <img className="candidate-image" src={candidate.imageUrl} alt={candidate.album} />
           )}
           <div className="candidate-main">
             <div className="candidate-title" title={candidate.title}>{candidate.title}</div>
@@ -177,8 +165,7 @@ function CandidateCard({ candidate, rank, isSelected, isReviewHighlight }) {
               {candidate.artists || candidate.artist}
             </div>
             <div className="candidate-album" title={candidate.album}>
-              {candidate.album}
-              {candidate.releaseYear && ` (${candidate.releaseYear})`}
+              {candidate.album}{candidate.releaseYear && ` (${candidate.releaseYear})`}
             </div>
           </div>
         </div>
@@ -190,34 +177,26 @@ function CandidateCard({ candidate, rank, isSelected, isReviewHighlight }) {
           <FlagBadge label="remix" active={candidate.isRemix} />
         </div>
       </div>
-      <ScoreBreakdown score={candidate.score} rank={rank} showScorerTag={isSelected} />
+      <ScoreBreakdown score={candidate.score} showScorerTag={isSelected} />
     </li>
   );
 }
 
-// ── Resolved match panel (what Phase 6 adds) ─────────────────────────────────
+// ── Resolved match panel ──────────────────────────────────────────────────────
 
 function MatchPanel({ match }) {
   const { status, chosen, allCandidates } = match;
-
-  let headerLabel = '';
-  let headerClass = '';
-  let headerExtra = null;
-
+  let headerLabel, headerClass, headerExtra;
   if (status === 'auto') {
-    headerLabel = 'Auto-accepted';
-    headerClass = 'auto-label';
+    headerLabel = 'Auto-accepted'; headerClass = 'auto-label';
     headerExtra = <span className="auto-score">score {chosen.score.final}</span>;
   } else if (status === 'review') {
-    headerLabel = 'Needs review — pick the right match';
-    headerClass = 'review-label';
+    headerLabel = 'Needs review — pick the right match'; headerClass = 'review-label';
     headerExtra = <span className="review-hint">highlighting top 3 candidates</span>;
   } else {
-    headerLabel = `No match found (all candidates scored below ${REVIEW_FLOOR})`;
-    headerClass = 'notfound-label';
+    headerLabel = `No match found (all candidates scored below ${REVIEW_FLOOR})`; headerClass = 'notfound-label';
     headerExtra = <span className="notfound-hint">all candidates listed below</span>;
   }
-
   return (
     <div className={`candidates-panel candidates-panel--${status}`}>
       <div className="panel-header">
@@ -228,109 +207,153 @@ function MatchPanel({ match }) {
         <p className="no-candidates">No Spotify results found.</p>
       ) : (
         <ol className="candidates-list">
-          {allCandidates.map((c, i) => {
-            const isSelected = status === 'auto' && i === 0;
-            const isReviewHighlight = status === 'review' && i < 3;
-            return (
-              <CandidateCard
-                key={c.id}
-                candidate={c}
-                rank={i}
-                isSelected={isSelected}
-                isReviewHighlight={isReviewHighlight}
-              />
-            );
-          })}
+          {allCandidates.map((c, i) => (
+            <CandidateCard
+              key={c.id} candidate={c}
+              isSelected={status === 'auto' && i === 0}
+              isReviewHighlight={status === 'review' && i < 3}
+            />
+          ))}
         </ol>
       )}
     </div>
   );
 }
 
+// ── Cache Panel ───────────────────────────────────────────────────────────────
+
+function CachePanel({ refreshTrigger }) {
+  const [stats,   setStats]   = useState({ hits: 0, misses: 0, size: 0, hitRate: 0 });
+  const [entries, setEntries] = useState([]);
+  const [open,    setOpen]    = useState(false);
+  const [error,   setError]   = useState(null);
+
+  async function refresh() {
+    try {
+      const data = await getCacheState();
+      setStats(data.stats);
+      setEntries(data.entries);
+    } catch (e) { setError(e.message); }
+  }
+
+  useEffect(() => { refresh(); }, [refreshTrigger]);
+
+  async function handleClear() {
+    try { await clearCache(); await refresh(); }
+    catch (e) { setError(e.message); }
+  }
+
+  const hitPct = (stats.hits + stats.misses) === 0 ? '—' : `${Math.round(stats.hitRate * 100)}%`;
+
+  return (
+    <div className="cache-panel">
+      <div className="cache-panel__header">
+        <span className="rp-step-label">phase 7 — match cache</span>
+        <div className="cache-panel__stats">
+          <span className="cache-stat cache-stat--hits">{stats.hits} hit{stats.hits !== 1 ? 's' : ''}</span>
+          <span className="cache-stat cache-stat--misses">{stats.misses} miss{stats.misses !== 1 ? 'es' : ''}</span>
+          <span className="cache-stat cache-stat--rate">{hitPct} hit rate</span>
+          <span className="cache-stat cache-stat--size">{stats.size} stored</span>
+        </div>
+        <div className="cache-panel__actions">
+          <button className="cache-btn" onClick={() => setOpen(o => !o)} disabled={entries.length === 0}>
+            {open ? 'hide entries' : `inspect (${entries.length})`}
+          </button>
+          <button className="cache-btn cache-btn--danger" onClick={handleClear} disabled={stats.size === 0}>
+            clear cache
+          </button>
+        </div>
+      </div>
+      {error && <p className="rp-error">{error}</p>}
+      {open && entries.length > 0 && (
+        <ul className="cache-entries">
+          {entries.map(({ key, match }) => {
+            const [titlePart, artistPart] = key.split('|');
+            const score = match.status === 'auto'
+              ? match.chosen?.score?.final
+              : match.topCandidates?.[0]?.score?.final ?? null;
+            return (
+              <li key={key} className="cache-entry">
+                <span className="cache-entry__key">
+                  <span className="cache-entry__title">{titlePart || '—'}</span>
+                  {artistPart && <span className="cache-entry__artist"> / {artistPart}</span>}
+                </span>
+                <span className={`cache-entry__status cache-entry__status--${match.status}`}>{match.status}</span>
+                {score != null && <span className="cache-entry__score">{score}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {open && entries.length === 0 && <p className="cache-empty">No entries yet.</p>}
+    </div>
+  );
+}
+
 // ── Song row ─────────────────────────────────────────────────────────────────
 
-function SongRow({ song, index, isLoggedIn }) {
-  const [status,   setStatus]   = useState('idle');
-  const [match,    setMatch]    = useState(null);   // ResolvedMatch
-  const [error,    setError]    = useState(null);
-  const [expanded, setExpanded] = useState(false);
+function SongRow({ song, index, isLoggedIn, onResolved }) {
+  const [status,    setStatus]    = useState('idle');
+  const [match,     setMatch]     = useState(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [error,     setError]     = useState(null);
+  const [expanded,  setExpanded]  = useState(false);
 
   async function resolve() {
-    if (!isLoggedIn) {
-      setError('Log in with Spotify first.');
-      setStatus('error');
-      return;
-    }
-    setStatus('loading');
-    setError(null);
+    if (!isLoggedIn) { setError('Log in with Spotify first.'); setStatus('error'); return; }
+    setStatus('loading'); setError(null); setFromCache(false);
     try {
-      const candidates  = await resolver.search(song.title, song.artist);
-      const songWithRaw = {
-        ...song,
-        rawText: song.rawText ?? `${song.title}${song.artist ? ` ${song.artist}` : ''}`,
-      };
-      const ranked   = rankCandidates(songWithRaw, candidates);
-      const resolved = bucketMatch(songWithRaw, ranked);
+      const token = await getValidAccessToken();
+      const { results } = await resolveSongs(
+        [{ title: song.title, artist: song.artist, rawText: song.rawText }],
+        token,
+      );
+      const resolved = results[0];
       setMatch(resolved);
+      setFromCache(resolved?.fromCache === true);
       setStatus('done');
       setExpanded(true);
-    } catch (err) {
-      setError(err.message);
-      setStatus('error');
-    }
+      onResolved?.();
+    } catch (err) { setError(err.message); setStatus('error'); }
   }
+
+  const headerRung = fromCache ? 'cache'
+    : match?.status === 'auto' ? match?.chosen?.queryRung
+    : match?.topCandidates?.[0]?.queryRung;
 
   return (
     <li className="song-row">
       <div className="song-row__header">
         <span className="song-row__index">{index + 1}</span>
-
         <div className="song-row__info">
           <span className="song-row__title">{song.title}</span>
           {song.artist && <span className="song-row__artist">{song.artist}</span>}
         </div>
-
         <div className="song-row__actions">
           {status === 'done' && match && <BucketBadge status={match.status} />}
+          {fromCache && <span className="cache-hit-badge" title="Served from server cache">cache</span>}
           {status === 'done' && match?.chosen && (
-            <span className="song-row__topscore" title="Auto-accepted score">
-              {match.chosen.score.final}
-            </span>
+            <span className="song-row__topscore">{match.chosen.score.final}</span>
           )}
           {status === 'done' && match?.status === 'review' && (
-            <span className="song-row__topscore" title="Top candidate score">
-              {match.topCandidates[0]?.score.final}
-            </span>
+            <span className="song-row__topscore">{match.topCandidates[0]?.score.final}</span>
           )}
-          {status === 'done' && match?.topCandidates?.[0]?.queryRung && (
-            <RungBadge rung={match.topCandidates[0].queryRung} />
-          )}
-          {status === 'done' && match?.chosen?.queryRung && (
-            <RungBadge rung={match.chosen.queryRung} />
-          )}
-          {status === 'error' && (
-            <span className="song-row__err" title={error}>error</span>
-          )}
+          {headerRung && <RungBadge rung={headerRung} />}
+          {status === 'error' && <span className="song-row__err" title={error}>error</span>}
           <button
             className={`resolve-btn resolve-btn--${status}`}
-            onClick={status === 'done' ? () => setExpanded((e) => !e) : resolve}
+            onClick={status === 'done' ? () => setExpanded(e => !e) : resolve}
             disabled={status === 'loading'}
           >
-            {status === 'idle'    && 'Search'}
+            {status === 'idle' && 'Search'}
             {status === 'loading' && '…'}
-            {status === 'done'    && (expanded ? 'hide' : 'show')}
-            {status === 'error'   && 'retry'}
+            {status === 'done' && (expanded ? 'hide' : 'show')}
+            {status === 'error' && 'retry'}
           </button>
         </div>
       </div>
-
-      {status === 'error' && (
-        <p className="song-row__error-msg">{error}</p>
-      )}
-
-      {status === 'done' && match && expanded && (
-        <MatchPanel match={match} />
-      )}
+      {status === 'error' && <p className="song-row__error-msg">{error}</p>}
+      {status === 'done' && match && expanded && <MatchPanel match={match} />}
     </li>
   );
 }
@@ -342,137 +365,84 @@ export default function ResolverPlayground({ isLoggedIn }) {
   const [songs,        setSongs]        = useState([]);
   const [parseStatus,  setParseStatus]  = useState('idle');
   const [parseError,   setParseError]   = useState(null);
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  const notifyResolved = useCallback(() => setRefreshCount(n => n + 1), []);
 
   const handleExtract = useCallback(async () => {
     if (!rawInput.trim() || parseStatus === 'loading') return;
-    setParseStatus('loading');
-    setParseError(null);
-    setSongs([]);
+    setParseStatus('loading'); setParseError(null); setSongs([]);
     try {
       const result = await extractSongs(rawInput);
-      const lines  = rawInput.split('\n').map((l) => l.trim()).filter(Boolean);
-      const withRaw = result.map((song, i) => ({
-        ...song,
-        rawText: lines[i] ?? rawInput,
-      }));
-      setSongs(withRaw);
+      const lines  = rawInput.split('\n').map(l => l.trim()).filter(Boolean);
+      setSongs(result.map((song, i) => ({ ...song, rawText: lines[i] ?? rawInput })));
       setParseStatus('done');
-    } catch (err) {
-      setParseError(err.message);
-      setParseStatus('error');
-    }
+    } catch (err) { setParseError(err.message); setParseStatus('error'); }
   }, [rawInput, parseStatus]);
 
   return (
     <div className="rp">
       <header className="rp-header">
         <h1>Resolver playground</h1>
-        <p className="rp-subtitle">
-          LLM extraction → Spotify search → scoring → bucketing
-        </p>
+        <p className="rp-subtitle">LLM extraction → Spotify search → scoring → bucketing → cache</p>
       </header>
 
-      {/* ── Step 1: extract ── */}
+      <CachePanel refreshTrigger={refreshCount} />
+
       <section className="rp-section">
         <span className="rp-step-label">step 1 — extract songs</span>
         <div className="rp-extract-row">
           <textarea
             className="rp-textarea"
             value={rawInput}
-            onChange={(e) => {
-              setRawInput(e.target.value);
-              setSongs([]);
-              setParseStatus('idle');
-              setParseError(null);
-            }}
-            placeholder={
-              'Paste a song list, e.g.\n' +
-              'Snowfall - Øneheart\n' +
-              'Painted Skies - Elaine\n' +
-              'Dawn - Jazz Oikawa'
-            }
+            onChange={(e) => { setRawInput(e.target.value); setSongs([]); setParseStatus('idle'); setParseError(null); }}
+            placeholder={'Paste a song list, e.g.\nSnowfall - Oneheart\nPainted Skies - Elaine\nDawn - Jazz Oikawa'}
             spellCheck={false}
           />
-          <button
-            className="rp-extract-btn"
-            onClick={handleExtract}
-            disabled={parseStatus === 'loading' || !rawInput.trim()}
-          >
+          <button className="rp-extract-btn" onClick={handleExtract} disabled={parseStatus === 'loading' || !rawInput.trim()}>
             {parseStatus === 'loading' ? 'Extracting…' : 'Extract'}
           </button>
         </div>
         {parseStatus === 'error' && <p className="rp-error">{parseError}</p>}
       </section>
 
-      {/* ── Step 2: resolve & bucket ── */}
       {parseStatus === 'done' && songs.length > 0 && (
         <section className="rp-section">
           <div className="rp-step-header">
             <span className="rp-step-label">step 2 — resolve & bucket</span>
-            <span className="rp-song-count">
-              {songs.length} song{songs.length !== 1 ? 's' : ''}
-            </span>
+            <span className="rp-song-count">{songs.length} song{songs.length !== 1 ? 's' : ''}</span>
           </div>
-
-          {!isLoggedIn && (
-            <p className="rp-login-hint">Log in with Spotify (nav bar) to enable search.</p>
-          )}
-
+          {!isLoggedIn && <p className="rp-login-hint">Log in with Spotify (nav bar) to enable search.</p>}
           <ul className="rp-song-list">
             {songs.map((song, i) => (
-              <SongRow key={i} song={song} index={i} isLoggedIn={isLoggedIn} />
+              <SongRow key={i} song={song} index={i} isLoggedIn={isLoggedIn} onResolved={notifyResolved} />
             ))}
           </ul>
         </section>
       )}
 
-      {parseStatus === 'done' && songs.length === 0 && (
-        <p className="rp-empty">No songs found in that input.</p>
-      )}
+      {parseStatus === 'done' && songs.length === 0 && <p className="rp-empty">No songs found in that input.</p>}
 
-      {/* ── Legend ── */}
       <section className="rp-legend">
         <span className="rp-step-label">bucket thresholds</span>
         <div className="rp-legend-items">
-          <div className="rp-legend-item">
-            <BucketBadge status="auto" />
-            <span>score ≥ {AUTO_ACCEPT_THRESHOLD} — accepted automatically</span>
-          </div>
-          <div className="rp-legend-item">
-            <BucketBadge status="review" />
-            <span>score ≥ {REVIEW_FLOOR} — top {3} candidates surfaced for review</span>
-          </div>
-          <div className="rp-legend-item">
-            <BucketBadge status="notfound" />
-            <span>score &lt; {REVIEW_FLOOR} — no usable match</span>
-          </div>
+          <div className="rp-legend-item"><BucketBadge status="auto" /><span>score &gt;= {AUTO_ACCEPT_THRESHOLD} — accepted automatically</span></div>
+          <div className="rp-legend-item"><BucketBadge status="review" /><span>score &gt;= {REVIEW_FLOOR} — top 3 candidates surfaced for review</span></div>
+          <div className="rp-legend-item"><BucketBadge status="notfound" /><span>score below {REVIEW_FLOOR} — no usable match</span></div>
         </div>
-
         <span className="rp-step-label" style={{ marginTop: 16 }}>score components</span>
         <div className="rp-legend-items">
           {COMPONENTS.map((c) => (
             <div key={c.key} className="rp-legend-item">
-              {c.max > 0
-                ? <span className="legend-swatch" style={{ background: c.color }} />
-                : <span className="legend-swatch legend-swatch--penalty" />
-              }
-              <span>
-                {c.label}
-                {c.max > 0
-                  ? ` (0–${c.max} pts)`
-                  : ` (−15 if live/remix and not requested)`}
-              </span>
+              {c.max > 0 ? <span className="legend-swatch" style={{ background: c.color }} /> : <span className="legend-swatch legend-swatch--penalty" />}
+              <span>{c.label}{c.max > 0 ? ` (0–${c.max} pts)` : ` (−15 if live/remix and not requested)`}</span>
             </div>
           ))}
         </div>
-
         <span className="rp-step-label" style={{ marginTop: 16 }}>query ladder</span>
         <div className="rp-legend-items">
           {Object.entries(RUNG_LABELS).map(([rung, { title }]) => (
-            <div key={rung} className="rp-legend-item">
-              <RungBadge rung={rung} />
-              <span>{title}</span>
-            </div>
+            <div key={rung} className="rp-legend-item"><RungBadge rung={rung} /><span>{title}</span></div>
           ))}
         </div>
       </section>
