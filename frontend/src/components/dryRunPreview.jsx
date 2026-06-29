@@ -60,32 +60,115 @@ function Section({ icon, title, badge, badgeVariant, defaultOpen = true, childre
 
 // ── Ready section ─────────────────────────────────────────────────────────────
 
-function ReadySection({ items }) {
+function ReadyItem({ match, originalIndex, reviewState, onReviewChange }) {
+  const [expanded, setExpanded] = useState(false);
+  const state = reviewState[originalIndex];
+  const isOverridden = state !== undefined;
+  const isSkipped = state?.skipped;
+  const c = isSkipped ? null : (state?.chosen ?? match.chosen);
+
+  const candidates = match.allCandidates ?? [];
+  const hasAlternatives = candidates.length > 1;
+
+  return (
+    <li className={`drp-ready-item-wrapper ${isOverridden ? 'drp-ready-item-wrapper--overridden' : ''} ${isSkipped ? 'drp-ready-item-wrapper--skipped' : ''}`}>
+      <div className="drp-ready-item">
+        {isSkipped ? (
+          <div className="drp-ready-item__skipped-placeholder">
+            <span>[Skipped] {match.parsedSong.title}{match.parsedSong.artist && ` — ${match.parsedSong.artist}`}</span>
+          </div>
+        ) : (
+          <>
+            <Thumb url={c?.imageUrl} alt={c?.album} />
+            <div className="drp-ready-item__info">
+              <span className="drp-ready-item__title">
+                {c?.title}
+                {isOverridden && <span className="drp-ready-item__override-badge">Overridden</span>}
+              </span>
+              <span className="drp-ready-item__artist">{c?.artists || c?.artist}</span>
+            </div>
+            <div className="drp-ready-item__meta">
+              <span className="drp-ready-item__score">{c?.score?.final}</span>
+              {match.fromCache && <span className="cache-hit-badge">cache</span>}
+            </div>
+          </>
+        )}
+
+        {hasAlternatives && (
+          <button
+            type="button"
+            className={`drp-ready-item__toggle-btn ${expanded ? 'drp-ready-item__toggle-btn--active' : ''}`}
+            onClick={() => setExpanded(!expanded)}
+            title="View alternative matches from Spotify"
+          >
+            {expanded ? 'Hide Alternatives' : 'Alternatives'}
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="drp-ready-item__alternatives">
+          <CandidatePicker
+            candidates={candidates}
+            selectedId={isSkipped ? null : (state?.chosen?.id ?? match.chosen.id)}
+            onSelect={(candidate) => {
+              if (candidate?.id === match.chosen.id) {
+                onReviewChange(originalIndex, undefined);
+              } else {
+                onReviewChange(originalIndex, {
+                  resolved: true,
+                  chosen: candidate,
+                  skipped: false,
+                });
+              }
+            }}
+            onSkip={() => {
+              onReviewChange(originalIndex, {
+                resolved: true,
+                chosen: null,
+                skipped: true,
+              });
+            }}
+          />
+          {isOverridden && (
+            <button
+              type="button"
+              className="drp-ready-item__reset-btn"
+              onClick={() => onReviewChange(originalIndex, undefined)}
+            >
+              Reset to original auto-match
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function ReadySection({ items, reviewState, onReviewChange }) {
   if (items.length === 0) return null;
+  const activeCount = items.filter(({ originalIndex }) => !reviewState[originalIndex]?.skipped).length;
+  const badgeText = activeCount === items.length
+    ? `${items.length} track${items.length !== 1 ? 's' : ''}`
+    : `${activeCount}/${items.length} track${items.length !== 1 ? 's' : ''}`;
+
   return (
     <Section
       icon="✓"
       title="Ready to add"
-      badge={`${items.length} track${items.length !== 1 ? 's' : ''}`}
+      badge={badgeText}
       badgeVariant="ready"
     >
       <ol className="drp-ready-list">
-        {items.map(({ match, originalIndex }) => {
-          const c = match.chosen;
-          return (
-            <li key={originalIndex} className="drp-ready-item">
-              <Thumb url={c.imageUrl} alt={c.album} />
-              <div className="drp-ready-item__info">
-                <span className="drp-ready-item__title">{c.title}</span>
-                <span className="drp-ready-item__artist">{c.artists || c.artist}</span>
-              </div>
-              <div className="drp-ready-item__meta">
-                <span className="drp-ready-item__score">{c.score.final}</span>
-                {match.fromCache && <span className="cache-hit-badge">cache</span>}
-              </div>
-            </li>
-          );
-        })}
+        {items.map(({ match, originalIndex }) => (
+          <ReadyItem
+            key={originalIndex}
+            match={match}
+            originalIndex={originalIndex}
+            reviewState={reviewState}
+            onReviewChange={onReviewChange}
+          />
+        ))}
       </ol>
     </Section>
   );
@@ -94,8 +177,11 @@ function ReadySection({ items }) {
 // ── Candidate picker for a single review item ────────────────────────────────
 
 function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
-  // Show top 3 candidates; the full list is truncated to keep this focused
-  const shown = candidates.slice(0, 3);
+  const [showAll, setShowAll] = useState(false);
+  
+  // Show top 3 candidates; expand if user clicks Show All
+  const shown = showAll ? candidates : candidates.slice(0, 3);
+  const hasMore = candidates.length > shown.length;
 
   return (
     <div className="drp-candidate-picker">
@@ -106,6 +192,7 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
           return (
             <li key={c.id}>
               <button
+                type="button"
                 className={`drp-candidate-option ${isSelected ? 'drp-candidate-option--selected' : ''}`}
                 onClick={() => onSelect(isSelected ? null : c)}
               >
@@ -124,7 +211,16 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip }) {
           );
         })}
       </ul>
-      <button className="drp-candidate-option__skip" onClick={onSkip}>
+      {hasMore && (
+        <button
+          type="button"
+          className="drp-candidate-picker__more-btn"
+          onClick={() => setShowAll(true)}
+        >
+          Show all {candidates.length} results
+        </button>
+      )}
+      <button type="button" className="drp-candidate-option__skip" onClick={onSkip}>
         Skip — none of these are right
       </button>
     </div>
@@ -343,16 +439,21 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
     ({ originalIndex }) => !reviewState[originalIndex]?.resolved
   ).length;
 
-  // The final tracks that will be added: auto-accepted + user-picked reviews
+  // The final tracks that will be added: auto-accepted + user-picked reviews + overrides
   const resolvedForCommit = useMemo(() => {
     return (resolvedMatches ?? []).map((match, i) => {
-      if (match.status === 'auto') return match;
       const rs = reviewState[i];
-      if (rs?.resolved && rs.chosen) {
-        // Promote the user's pick to "auto"-like with a marker
-        return { ...match, status: 'auto', chosen: rs.chosen, userPicked: true };
+      if (rs !== undefined) {
+        if (rs.resolved) {
+          if (rs.chosen) {
+            return { ...match, status: 'auto', chosen: rs.chosen, userPicked: true };
+          }
+          if (rs.skipped) {
+            return { ...match, status: 'skipped' };
+          }
+        }
       }
-      return { ...match, status: rs?.skipped ? 'skipped' : match.status };
+      return match;
     });
   }, [resolvedMatches, reviewState]);
 
@@ -361,12 +462,10 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
     onConfirm?.(resolvedForCommit);
   }
 
-  // Count truly ready: auto + user-resolved reviews (not skipped)
-  const finalReadyCount = readyItems.length +
-    reviewItems.filter(({ originalIndex }) => {
-      const rs = reviewState[originalIndex];
-      return rs?.resolved && !rs.skipped;
-    }).length;
+  // Count truly ready: status === 'auto' in resolvedForCommit
+  const finalReadyCount = useMemo(() => {
+    return resolvedForCommit.filter((m) => m.status === 'auto').length;
+  }, [resolvedForCommit]);
 
   if (confirmed) {
     return (
@@ -393,7 +492,11 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack }) {
         confirmed={false}
       />
 
-      <ReadySection items={readyItems} />
+      <ReadySection
+        items={readyItems}
+        reviewState={reviewState}
+        onReviewChange={handleReviewChange}
+      />
       <ReviewSection
         items={reviewItems}
         reviewState={reviewState}
