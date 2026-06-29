@@ -102,16 +102,25 @@ def _build_rungs(title: str, artist: str | None) -> list[dict]:
     return rungs
 
 
+_client: httpx.AsyncClient | None = None
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=30.0)
+    return _client
+
+
 async def _search_spotify(query: str, limit: int, token: str) -> list[dict]:
     """Raw Spotify /v1/search call. Returns list of track objects."""
     params = {"q": query, "type": "track", "limit": str(limit)}
+    client = _get_client()
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        res = await client.get(
-            "https://api.spotify.com/v1/search",
-            params=params,
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    res = await client.get(
+        "https://api.spotify.com/v1/search",
+        params=params,
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     if res.status_code == 401:
         raise RuntimeError("Spotify token expired or invalid — please log in again.")
