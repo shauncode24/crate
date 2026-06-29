@@ -9,15 +9,17 @@ import {
 
 import SongsInput        from './components/songsInput.jsx';
 import ResolverPlayground from './components/resolverPlayground.jsx';
+import ImportPipeline    from './components/importPipeline.jsx';
 import './App.css';
 
 const TABS = [
+  { id: 'import',   label: 'Import'   },
   { id: 'parser',   label: 'Parser'   },
   { id: 'resolver', label: 'Resolver' },
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('parser');
+  const [activeTab, setActiveTab] = useState('import');
   const [authStatus, setAuthStatus] = useState('checking'); // checking | logged-in | logged-out | error
   const [profile, setProfile]       = useState(null);
   const [error, setError]           = useState(null);
@@ -107,6 +109,7 @@ export default function App() {
 
       {/* ── Tab content ── */}
       <main>
+        {activeTab === 'import'   && <ImportPipeline isLoggedIn={loggedIn} />}
         {activeTab === 'parser'   && <SongsInput />}
         {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={loggedIn} />}
       </main>
