@@ -58,3 +58,53 @@ export async function clearCache() {
   const res = await fetch(`${API_BASE}/api/resolve/cache`, { method: 'DELETE' });
   if (res.status !== 204 && !res.ok) throw new Error(`Cache clear error ${res.status}`);
 }
+
+/**
+ * Resolve songs via the streaming endpoint (Phase 8 test harness).
+ * Reads the response as newline-delimited JSON and calls onEvent for each
+ * line: {type:"progress"|"retry"|"done", ...}.
+ *
+ * @param {Array<{title, artist, rawText}>} songs
+ * @param {string} spotifyAccessToken
+ * @param {(event: object) => void} onEvent
+ * @param {number|null} simulate429At — TODO(phase-8-cleanup): dev-only fault injection
+ */
+export async function resolveSongsStream(songs, spotifyAccessToken, onEvent, simulate429At = null) {
+  const res = await fetch(`${API_BASE}/api/resolve/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${spotifyAccessToken}`,
+    },
+    body: JSON.stringify({
+      songs,
+      ...(simulate429At != null ? { simulate429At } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Backend error ${res.status}`);
+  }
+  if (!res.body) {
+    throw new Error('Streaming not supported by this browser.');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIdx;
+    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIdx).trim();
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line) onEvent(JSON.parse(line));
+    }
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer.trim()));
+}

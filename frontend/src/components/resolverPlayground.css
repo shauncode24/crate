@@ -792,6 +792,122 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #16a34a;
+
+  
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 8 — Resolve-all, batch progress, retry banner, dev fault injection
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.rp-resolve-all-btn {
+  font: 12px/1 var(--mono);
+  padding: 6px 14px;
+  border-radius: 5px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rp-resolve-all-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.rp-resolve-all-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rp-batch-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rp-batch-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.rp-batch-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+.rp-batch-progress-label {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.rp-retry-banner {
+  font: 12px/1.5 var(--mono);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  margin: 0;
+}
+.rp-retry-dim { opacity: 0.6; }
+@media (prefers-color-scheme: dark) {
+  .rp-retry-banner { color: #fbbf24; }
+}
+
+.rp-dev-tools {
+  font: 11px/1 var(--mono);
+  color: var(--text);
+  opacity: 0.6;
+}
+.rp-dev-tools summary { cursor: pointer; }
+.rp-dev-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.rp-dev-field input[type="number"] {
+  width: 60px;
+  font: 11px var(--mono);
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text-h);
+}
+
+.rp-activity-toggle {
+  font: 11px/1 var(--mono);
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+.rp-activity-log {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rp-activity-line {
+  font: 11px/1.4 var(--mono);
+  color: var(--text);
+  opacity: 0.6;
+}
+.rp-activity-line--retry {
+  color: #b45309;
+  opacity: 1;
+}
+@media (prefers-color-scheme: dark) {
+  .rp-activity-line--retry { color: #fbbf24; }
 }
 
 @media (prefers-color-scheme: dark) {

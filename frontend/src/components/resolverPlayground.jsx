@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { extractSongs }       from '../extraction/extract.js';
 import { getValidAccessToken } from '../auth/spotifyAuth.js';
-import { resolveSongs, getCacheState, clearCache } from '../api/resolveApi.js';
+import { resolveSongs, resolveSongsStream, getCacheState, clearCache } from '../api/resolveApi.js';
 import { AUTO_ACCEPT_THRESHOLD, REVIEW_FLOOR } from '../config/matchConfig.js';
 import './resolverPlayground.css';
 
@@ -11,10 +11,6 @@ function ms(durationMs) {
   const m = Math.floor(durationMs / 60000);
   const s = String(Math.floor((durationMs % 60000) / 1000)).padStart(2, '0');
   return `${m}:${s}`;
-}
-
-function fmt(n) {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 // ── Shared badges ────────────────────────────────────────────────────────────
@@ -58,8 +54,6 @@ function BucketBadge({ status }) {
 
 // ── Score breakdown (collapsible) ────────────────────────────────────────────
 
-// Components returned by the backend scorer (each 0–1).
-// weight: each component's contribution to the weighted average.
 const COMPONENTS = [
   { key: 'title',      label: 'title',      weight: 0.40, color: 'var(--score-title)'  },
   { key: 'artist',     label: 'artist',     weight: 0.25, color: 'var(--score-artist)' },
@@ -87,7 +81,6 @@ function ScoreBreakdown({ score, showScorerTag }) {
         <span className={`score-band score-band--${band}`}>{band}</span>
         <div className="score-bar" aria-hidden="true">
           {COMPONENTS.map((c) => {
-            // Each segment width = component_value × its weight (contribution to final)
             const contribution = Math.max(0, score[c.key]) * c.weight;
             return (
               <div
@@ -232,15 +225,24 @@ function CachePanel({ refreshTrigger }) {
   const [open,    setOpen]    = useState(false);
   const [error,   setError]   = useState(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const data = await getCacheState();
       setStats(data.stats);
       setEntries(data.entries);
     } catch (e) { setError(e.message); }
-  }
+  }, []);
 
-  useEffect(() => { refresh(); }, [refreshTrigger]);
+  useState(() => { refresh(); }); // initial load — runs once like the original effect did
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => {}, [refreshTrigger]);
+
+  // Re-fetch whenever refreshTrigger changes (mirrors the original useEffect).
+  const [lastTrigger, setLastTrigger] = useState(refreshTrigger);
+  if (refreshTrigger !== lastTrigger) {
+    setLastTrigger(refreshTrigger);
+    refresh();
+  }
 
   async function handleClear() {
     try { await clearCache(); await refresh(); }
@@ -294,36 +296,32 @@ function CachePanel({ refreshTrigger }) {
   );
 }
 
-// ── Song row ─────────────────────────────────────────────────────────────────
+// ── Song row (controlled by parent — no internal resolution state) ──────────
 
-function SongRow({ song, index, isLoggedIn, onResolved }) {
-  const [status,    setStatus]    = useState('idle');
-  const [match,     setMatch]     = useState(null);
-  const [fromCache, setFromCache] = useState(false);
-  const [error,     setError]     = useState(null);
-  const [expanded,  setExpanded]  = useState(false);
+const EMPTY_RESULT = { status: 'idle', match: null, fromCache: false, error: null };
 
-  async function resolve() {
-    if (!isLoggedIn) { setError('Log in with Spotify first.'); setStatus('error'); return; }
-    setStatus('loading'); setError(null); setFromCache(false);
-    try {
-      const token = await getValidAccessToken();
-      const { results } = await resolveSongs(
-        [{ title: song.title, artist: song.artist, rawText: song.rawText }],
-        token,
-      );
-      const resolved = results[0];
-      setMatch(resolved);
-      setFromCache(resolved?.fromCache === true);
-      setStatus('done');
-      setExpanded(true);
-      onResolved?.();
-    } catch (err) { setError(err.message); setStatus('error'); }
+function SongRow({ song, index, result = EMPTY_RESULT, isLoggedIn, onResolveOne }) {
+  const { status, match, fromCache, error } = result;
+  const [expanded, setExpanded] = useState(false);
+
+  // Auto-expand the first time a row finishes resolving, so batch results
+  // are immediately visible instead of needing a click each.
+  const [autoExpandedFor, setAutoExpandedFor] = useState(null);
+  if (status === 'done' && autoExpandedFor !== index) {
+    setAutoExpandedFor(index);
+    if (!expanded) setExpanded(true);
   }
+
+  const isBucketError = match?.status === 'error';
 
   const headerRung = fromCache ? 'cache'
     : match?.status === 'auto' ? match?.chosen?.queryRung
     : match?.topCandidates?.[0]?.queryRung;
+
+  function handleClick() {
+    if (status === 'done') { setExpanded((e) => !e); return; }
+    onResolveOne(index);
+  }
 
   return (
     <li className="song-row">
@@ -334,7 +332,8 @@ function SongRow({ song, index, isLoggedIn, onResolved }) {
           {song.artist && <span className="song-row__artist">{song.artist}</span>}
         </div>
         <div className="song-row__actions">
-          {status === 'done' && match && <BucketBadge status={match.status} />}
+          {status === 'done' && match && !isBucketError && <BucketBadge status={match.status} />}
+          {isBucketError && <span className="song-row__err" title={match.error}>error</span>}
           {fromCache && <span className="cache-hit-badge" title="Served from server cache">cache</span>}
           {status === 'done' && match?.chosen && (
             <span className="song-row__topscore">{match.chosen.score.final}</span>
@@ -346,7 +345,7 @@ function SongRow({ song, index, isLoggedIn, onResolved }) {
           {status === 'error' && <span className="song-row__err" title={error}>error</span>}
           <button
             className={`resolve-btn resolve-btn--${status}`}
-            onClick={status === 'done' ? () => setExpanded(e => !e) : resolve}
+            onClick={handleClick}
             disabled={status === 'loading'}
           >
             {status === 'idle' && 'Search'}
@@ -357,7 +356,8 @@ function SongRow({ song, index, isLoggedIn, onResolved }) {
         </div>
       </div>
       {status === 'error' && <p className="song-row__error-msg">{error}</p>}
-      {status === 'done' && match && expanded && <MatchPanel match={match} />}
+      {isBucketError && <p className="song-row__error-msg">{match.error}</p>}
+      {status === 'done' && match && !isBucketError && expanded && <MatchPanel match={match} />}
     </li>
   );
 }
@@ -365,30 +365,120 @@ function SongRow({ song, index, isLoggedIn, onResolved }) {
 // ── Main playground ───────────────────────────────────────────────────────────
 
 export default function ResolverPlayground({ isLoggedIn }) {
-  const [rawInput,     setRawInput]     = useState('');
-  const [songs,        setSongs]        = useState([]);
-  const [parseStatus,  setParseStatus]  = useState('idle');
-  const [parseError,   setParseError]   = useState(null);
-  const [refreshCount, setRefreshCount] = useState(0);
+  const [rawInput,    setRawInput]    = useState('');
+  const [songs,       setSongs]       = useState([]);
+  const [results,     setResults]     = useState([]); // parallel array to `songs`
+  const [parseStatus, setParseStatus] = useState('idle');
+  const [parseError,  setParseError]  = useState(null);
 
-  const notifyResolved = useCallback(() => setRefreshCount(n => n + 1), []);
+  // Batch resolve (Phase 8 — bounded concurrency + 429 backoff, server-side)
+  const [batchRunning,   setBatchRunning]   = useState(false);
+  const [batchProgress,  setBatchProgress]  = useState({ completed: 0, total: 0 });
+  const [retryNotice,    setRetryNotice]    = useState(null);
+  const [batchError,     setBatchError]     = useState(null);
+  const [activityLog,    setActivityLog]    = useState([]);
+  const [showLog,        setShowLog]        = useState(false);
+  const [devSimulate429,   setDevSimulate429]   = useState(false);
+  const [devSimulate429At, setDevSimulate429At] = useState(5);
+
+  const [refreshCount, setRefreshCount] = useState(0);
+  const notifyResolved = useCallback(() => setRefreshCount((n) => n + 1), []);
 
   const handleExtract = useCallback(async () => {
     if (!rawInput.trim() || parseStatus === 'loading') return;
-    setParseStatus('loading'); setParseError(null); setSongs([]);
+    setParseStatus('loading'); setParseError(null); setSongs([]); setResults([]);
     try {
       const result = await extractSongs(rawInput);
-      const lines  = rawInput.split('\n').map(l => l.trim()).filter(Boolean);
-      setSongs(result.map((song, i) => ({ ...song, rawText: lines[i] ?? rawInput })));
+      const lines  = rawInput.split('\n').map((l) => l.trim()).filter(Boolean);
+      const extracted = result.map((song, i) => ({ ...song, rawText: lines[i] ?? rawInput }));
+      setSongs(extracted);
+      setResults(extracted.map(() => ({ ...EMPTY_RESULT })));
       setParseStatus('done');
     } catch (err) { setParseError(err.message); setParseStatus('error'); }
   }, [rawInput, parseStatus]);
+
+  // ── Single-row resolve (manual "Search"/"retry" on one song) ─────────────
+  const handleResolveOne = useCallback(async (index) => {
+    if (!isLoggedIn) {
+      setResults((prev) => prev.map((r, i) => i === index ? { ...r, status: 'error', error: 'Log in with Spotify first.' } : r));
+      return;
+    }
+    setResults((prev) => prev.map((r, i) => i === index ? { ...r, status: 'loading', error: null } : r));
+    try {
+      const token = await getValidAccessToken();
+      const song = songs[index];
+      const { results: apiResults } = await resolveSongs(
+        [{ title: song.title, artist: song.artist, rawText: song.rawText }],
+        token,
+      );
+      const resolved = apiResults[0];
+      setResults((prev) => prev.map((r, i) => i === index
+        ? { status: 'done', match: resolved, fromCache: resolved?.fromCache === true, error: null }
+        : r));
+      notifyResolved();
+    } catch (err) {
+      setResults((prev) => prev.map((r, i) => i === index
+        ? { status: 'error', match: null, fromCache: false, error: err.message }
+        : r));
+    }
+  }, [songs, isLoggedIn, notifyResolved]);
+
+  // ── Resolve everything at once — bounded concurrency + 429 backoff ───────
+  const handleResolveAll = useCallback(async () => {
+    if (!isLoggedIn) { setBatchError('Log in with Spotify first.'); return; }
+    if (songs.length === 0) return;
+
+    setBatchRunning(true);
+    setBatchError(null);
+    setRetryNotice(null);
+    setActivityLog([]);
+    setBatchProgress({ completed: 0, total: songs.length });
+    setResults(songs.map(() => ({ status: 'loading', match: null, fromCache: false, error: null })));
+
+    try {
+      const token = await getValidAccessToken();
+      await resolveSongsStream(
+        songs,
+        token,
+        (event) => {
+          setActivityLog((prev) => [...prev, event].slice(-100));
+
+          if (event.type === 'progress') {
+            setBatchProgress({ completed: event.completed, total: event.total });
+          }
+          if (event.type === 'retry') {
+            setRetryNotice(event);
+            setTimeout(() => {
+              setRetryNotice((cur) => (cur === event ? null : cur));
+            }, event.waitSeconds * 1000);
+          }
+          if (event.type === 'result') {
+            const resolved = event.result;
+            setResults((prev) => prev.map((r, i) => i === event.index
+              ? { status: 'done', match: resolved, fromCache: resolved?.fromCache === true, error: null }
+              : r));
+          }
+          if (event.type === 'done') {
+            notifyResolved();
+          }
+        },
+        devSimulate429 ? devSimulate429At : null,
+      );
+    } catch (err) {
+      setBatchError(err.message);
+    } finally {
+      setBatchRunning(false);
+    }
+  }, [songs, isLoggedIn, devSimulate429, devSimulate429At, notifyResolved]);
+
+  const resolvedCount = results.filter((r) => r.status === 'done').length;
+  const pct = batchProgress.total ? Math.round((batchProgress.completed / batchProgress.total) * 100) : 0;
 
   return (
     <div className="rp">
       <header className="rp-header">
         <h1>Resolver playground</h1>
-        <p className="rp-subtitle">LLM extraction → Spotify search → scoring → bucketing → cache</p>
+        <p className="rp-subtitle">LLM extraction → Spotify search (rate-limited, retried) → scoring → bucketing → cache</p>
       </header>
 
       <CachePanel refreshTrigger={refreshCount} />
@@ -399,7 +489,7 @@ export default function ResolverPlayground({ isLoggedIn }) {
           <textarea
             className="rp-textarea"
             value={rawInput}
-            onChange={(e) => { setRawInput(e.target.value); setSongs([]); setParseStatus('idle'); setParseError(null); }}
+            onChange={(e) => { setRawInput(e.target.value); setSongs([]); setResults([]); setParseStatus('idle'); setParseError(null); }}
             placeholder={'Paste a song list, e.g.\nSnowfall - Oneheart\nPainted Skies - Elaine\nDawn - Jazz Oikawa'}
             spellCheck={false}
           />
@@ -415,11 +505,79 @@ export default function ResolverPlayground({ isLoggedIn }) {
           <div className="rp-step-header">
             <span className="rp-step-label">step 2 — resolve & bucket</span>
             <span className="rp-song-count">{songs.length} song{songs.length !== 1 ? 's' : ''}</span>
+            <button className="rp-resolve-all-btn" onClick={handleResolveAll} disabled={batchRunning || !isLoggedIn}>
+              {batchRunning
+                ? `Resolving ${batchProgress.completed}/${batchProgress.total}…`
+                : `Resolve all ${songs.length}`}
+            </button>
           </div>
+
           {!isLoggedIn && <p className="rp-login-hint">Log in with Spotify (nav bar) to enable search.</p>}
+          {batchError && <p className="rp-error">{batchError}</p>}
+
+          {batchRunning && (
+            <div className="rp-batch-progress">
+              <div className="rp-batch-progress-track">
+                <div className="rp-batch-progress-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="rp-batch-progress-label">{resolvedCount}/{songs.length} resolved</span>
+            </div>
+          )}
+
+          {retryNotice && (
+            <p className="rp-retry-banner">
+              ⏳ Spotify rate-limited "{retryNotice.title}" — retrying in {retryNotice.waitSeconds}s
+              <span className="rp-retry-dim"> (attempt {retryNotice.attempt}/{retryNotice.maxRetries})</span>
+            </p>
+          )}
+
+          <details className="rp-dev-tools">
+            <summary>dev: simulate a 429 (test the backoff path)</summary>
+            <label className="rp-dev-field">
+              <input
+                type="checkbox"
+                checked={devSimulate429}
+                onChange={(e) => setDevSimulate429(e.target.checked)}
+              />
+              fake a rate-limit on request #
+              <input
+                type="number" min={1} value={devSimulate429At}
+                onChange={(e) => setDevSimulate429At(Number(e.target.value) || 1)}
+                disabled={!devSimulate429}
+              />
+            </label>
+          </details>
+
+          {activityLog.length > 0 && (
+            <div className="rp-activity">
+              <button className="rp-activity-toggle" onClick={() => setShowLog((s) => !s)}>
+                {showLog ? 'hide' : 'show'} activity log ({activityLog.length})
+              </button>
+              {showLog && (
+                <ul className="rp-activity-log">
+                  {activityLog.map((e, i) => (
+                    <li key={i} className={`rp-activity-line rp-activity-line--${e.type}`}>
+                      {e.type === 'progress' && `progress ${e.completed}/${e.total}`}
+                      {e.type === 'retry' && `retrying "${e.title}" in ${e.waitSeconds}s (attempt ${e.attempt}/${e.maxRetries})`}
+                      {e.type === 'result' && `resolved #${e.index + 1} — ${e.result.status}`}
+                      {e.type === 'done' && `done — ${e.results.length} results`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <ul className="rp-song-list">
             {songs.map((song, i) => (
-              <SongRow key={i} song={song} index={i} isLoggedIn={isLoggedIn} onResolved={notifyResolved} />
+              <SongRow
+                key={i}
+                song={song}
+                index={i}
+                result={results[i]}
+                isLoggedIn={isLoggedIn}
+                onResolveOne={handleResolveOne}
+              />
             ))}
           </ul>
         </section>

@@ -19,6 +19,21 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
+class SpotifyRateLimitError(Exception):
+    """
+    Raised when Spotify returns 429 Too Many Requests.
+
+    Carries `retry_after` (seconds, from the Retry-After header) so callers
+    can back off correctly instead of treating this as a hard failure —
+    a 429 is an expected, recoverable condition, not an error.
+    """
+
+    def __init__(self, retry_after: float):
+        self.retry_after = retry_after
+        super().__init__(f"Spotify rate-limited — retry after {retry_after}s")
+
+
 # ── Keyword sets for flag derivation (mirrors spotifyResolver.js) ─────────────
 
 LIVE_KEYWORDS = [
@@ -101,8 +116,12 @@ async def _search_spotify(query: str, limit: int, token: str) -> list[dict]:
     if res.status_code == 401:
         raise RuntimeError("Spotify token expired or invalid — please log in again.")
     if res.status_code == 429:
-        retry = res.headers.get("Retry-After", "?")
-        raise RuntimeError(f"Spotify rate-limited. Retry after {retry}s.")
+        raw = res.headers.get("Retry-After", "1")
+        try:
+            retry_after = float(raw)
+        except ValueError:
+            retry_after = 1.0
+        raise SpotifyRateLimitError(retry_after)
     if not res.is_success:
         raise RuntimeError(f"Spotify search error {res.status_code}: {res.text}")
 
