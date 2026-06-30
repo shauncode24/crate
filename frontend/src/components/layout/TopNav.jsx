@@ -1,12 +1,20 @@
 import './TopNav.css';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
+import logoImg from '../../assets/logo3.png';
 
 export default function TopNav({ displayName = 'User', onLogout }) {
   return (
     <header className="topnav">
       <div className="topnav__inner">
         <div className="topnav__brand">
-          <div className="topnav__logo">♪</div>
+          <div className="topnav__logo">
+            <img
+              src={logoImg}
+              alt="Crate Logo"
+              className="topnav__logo-img"
+              style={{ width: '30px', height: '30px', objectFit: 'contain' }}
+            />
+          </div>
           <span className="topnav__name">Crate</span>
         </div>
 

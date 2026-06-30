@@ -57,9 +57,14 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Hide breadcrumb separators for a cleaner layout matching mockup */
+/* Breadcrumb separators to show connection lines between stages */
 .step-breadcrumb__sep {
-  display: none;
+  display: block;
+  width: 28px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .step-breadcrumb__reset {
@@ -76,4 +81,4 @@
 
 .step-breadcrumb__reset:hover {
   color: var(--text-h);
-}
+}

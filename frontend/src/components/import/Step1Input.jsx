@@ -20,7 +20,7 @@ export default function Step1Input({ onExtracted }) {
   const [error, setError] = useState(null);
 
   async function handleExtract() {
-    if (!rawInput.trim() || status === 'loading') return;
+    if (!rawInput.trim() || rawInput.length > 20000 || status === 'loading') return;
     setStatus('loading');
     setError(null);
     try {
@@ -34,33 +34,55 @@ export default function Step1Input({ onExtracted }) {
     setStatus('idle');
   }
 
+  function handleKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      if (rawInput.trim() && rawInput.length <= 20000 && status !== 'loading') {
+        e.preventDefault();
+        handleExtract();
+      }
+    }
+  }
+
   return (
-    <div className="step1">
-      <div className="step1__intro">
-        <h2 className="step1__title">Paste your tracks</h2>
-        <p className="step1__subtitle">
-          Paste a list of songs from anywhere. We'll find them on Spotify.
-        </p>
-      </div>
+    <div className="step1__container">
+      <div className="step1__form-card">
+        <div className="step1__intro">
+          <h2 className="step1__title">Paste your tracks</h2>
+          <p className="step1__subtitle">
+            Paste raw text containing songs from lists, articles, or setlists.
+          </p>
+        </div>
 
-      <textarea
-        className="step1__textarea"
-        value={rawInput}
-        onChange={(e) => setRawInput(e.target.value)}
-        placeholder={'e.g.\nBohemian Rhapsody - Queen\nHotel California - Eagles'}
-        spellCheck={false}
-      />
+        <div className="step1__textarea-wrapper">
+          <textarea
+            className="step1__textarea"
+            value={rawInput}
+            onChange={(e) => setRawInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={'e.g.\nBohemian Rhapsody - Queen\nHotel California - Eagles'}
+            spellCheck={false}
+            disabled={status === 'loading'}
+          />
+          
+          <div className="step1__counter-row">
+            <span className="step1__shortcut-tip">Press Ctrl + Enter to submit</span>
+            <span className={`step1__char-count ${rawInput.length > 20000 ? 'step1__char-count--over' : ''}`}>
+              {rawInput.length.toLocaleString()} / 20,000 chars
+            </span>
+          </div>
+        </div>
 
-      <div className="step1__actions">
-        <button
-          className="step1__submit"
-          onClick={handleExtract}
-          disabled={!rawInput.trim() || status === 'loading'}
-        >
-          {status === 'loading' && <span className="step1__spinner" aria-hidden="true" />}
-          {status === 'loading' ? 'Extracting…' : 'Find songs'}
-        </button>
-        {status === 'error' && <p className="step1__error">{error}</p>}
+        <div className="step1__actions">
+          <button
+            className="step1__submit"
+            onClick={handleExtract}
+            disabled={!rawInput.trim() || rawInput.length > 20000 || status === 'loading'}
+          >
+            {status === 'loading' && <span className="step1__spinner" aria-hidden="true" />}
+            {status === 'loading' ? 'Extracting…' : 'Find songs'}
+          </button>
+          {status === 'error' && <p className="step1__error">{error}</p>}
+        </div>
       </div>
     </div>
   );

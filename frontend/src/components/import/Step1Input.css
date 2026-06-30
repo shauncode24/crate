@@ -1,44 +1,112 @@
-.step1 {
+.step1__container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  max-width: 640px;
+  max-width: 680px;
+  width: 100%;
   margin: 0 auto;
+}
+
+/* Form Card */
+.step1__form-card {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .step1__intro {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 8px;
-  text-align: center;
-  margin-bottom: 8px;
+  text-align: left;
 }
 
 .step1__title {
-  font-size: 32px;
+  font-size: 26px;
+  font-weight: 800;
   letter-spacing: -0.6px;
+  color: var(--text-h);
+  margin: 0;
 }
 
 .step1__subtitle {
-  font-size: 16px;
-  color: var(--text);
+  font-size: 15px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.step1__textarea-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
 .step1__textarea {
   width: 100%;
-  min-height: 320px;
+  min-height: 250px;
   resize: vertical;
-  font: 17px/1.6 var(--sans);
-  padding: 24px;
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  background: var(--bg-elevated);
+  font: 15px/1.6 var(--sans);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated); /* Input is lighter than page background (white in light mode) */
   color: var(--text-h);
-  box-shadow: var(--shadow-sm);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  
+  /* Firefox scrollbar support */
+  scrollbar-width: thin;
+  scrollbar-color: #b0b0b0 transparent;
+}
+
+/* Custom Webkit scrollbar for a sleek minimalistic look */
+.step1__textarea::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.step1__textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.step1__textarea::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: var(--radius-full);
+}
+
+.step1__textarea::-webkit-scrollbar-thumb:hover {
+  background: #606060; /* Darker gray on hover */
+}
+
+/* Dark mode scrollbar theme overrides */
+@media (prefers-color-scheme: dark) {
+  .step1__textarea {
+    scrollbar-color: #505050 transparent;
+  }
+  .step1__textarea::-webkit-scrollbar-thumb {
+    background: #505050;
+  }
+  .step1__textarea::-webkit-scrollbar-thumb:hover {
+    background: #808080;
+  }
+}
+
+html[data-theme='dark'] .step1__textarea {
+  scrollbar-color: #505050 transparent;
+}
+
+html[data-theme='dark'] .step1__textarea::-webkit-scrollbar-thumb {
+  background: #505050;
+}
+
+html[data-theme='dark'] .step1__textarea::-webkit-scrollbar-thumb:hover {
+  background: #808080;
 }
 
 .step1__textarea::placeholder {
@@ -46,15 +114,33 @@
 }
 
 .step1__textarea:focus {
-  border-color: var(--text-h);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(29, 185, 84, 0.15);
+}
+
+.step1__counter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.step1__shortcut-tip {
+  opacity: 0.8;
+}
+
+.step1__char-count--over {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .step1__actions {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding-top: 8px;
 }
 
 .step1__submit {
@@ -62,14 +148,14 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 56px;
-  min-width: 200px;
-  padding: 0 32px;
+  height: 48px;
+  min-width: 160px;
+  padding: 0 28px;
   border-radius: var(--radius-full);
   border: none;
   background: var(--brand);
   color: #fff;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
@@ -77,7 +163,11 @@
 
 .step1__submit:hover:not(:disabled) {
   background: var(--brand-hover);
-  transform: scale(1.02);
+  transform: translateY(-1px);
+}
+
+.step1__submit:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .step1__submit:disabled {
