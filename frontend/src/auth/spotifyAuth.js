@@ -52,6 +52,9 @@ export async function handleAuthCallback() {
   const error = params.get('error');
 
   if (error) {
+    // Clear the error query param and redirect URL path in the browser address bar
+    // so a subsequent manual page refresh loads the clean homepage.
+    window.history.replaceState({}, document.title, '/');
     throw new Error(`Spotify authorization failed: ${error}`);
   }
   if (!code) {

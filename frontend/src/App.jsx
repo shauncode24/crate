@@ -20,6 +20,8 @@ const TABS = [
   { id: 'resolver', label: 'Resolver' },
 ];
 
+let isAuthCallbackStarted = false;
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('import');
   const [authStatus, setAuthStatus] = useState('checking'); // checking | logged-in | logged-out | error
@@ -30,6 +32,9 @@ export default function App() {
     async function init() {
       try {
         if (window.location.pathname === '/callback') {
+          if (isAuthCallbackStarted) return;
+          isAuthCallbackStarted = true;
+          
           const handled = await handleAuthCallback();
           if (handled) {
             window.location.href = '/';
@@ -60,6 +65,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    isAuthCallbackStarted = false;
     clearTokens();
     setProfile(null);
     setAuthStatus('logged-out');
@@ -88,4 +94,4 @@ export default function App() {
       </main>
     </div>
   );
-}
+}
