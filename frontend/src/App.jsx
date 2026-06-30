@@ -7,6 +7,7 @@ import {
   clearTokens,
 } from './auth/spotifyAuth.js';
 
+import WelcomeScreen from './components/welcome/WelcomeScreen.jsx';
 import SongsInput        from './components/songsInput.jsx';
 import ResolverPlayground from './components/resolverPlayground.jsx';
 import ImportPipeline    from './components/importPipeline.jsx';
@@ -63,12 +64,21 @@ export default function App() {
     setAuthStatus('logged-out');
   }
 
-  const loggedIn = authStatus === 'logged-in';
+  // ── Not logged in yet: show the welcome / login screen ──
+  if (authStatus === 'checking' || authStatus === 'logged-out' || authStatus === 'error') {
+    return (
+      <WelcomeScreen
+        authStatus={authStatus}
+        error={error}
+        onLogin={loginWithSpotify}
+      />
+    );
+  }
 
+  // ── Logged in: existing tabbed shell (to be restyled next) ──
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Top nav ── */}
       <nav className="app-nav">
         <div className="app-nav__tabs">
           {TABS.map((tab) => (
@@ -83,38 +93,21 @@ export default function App() {
         </div>
 
         <div className="app-nav__auth">
-          {authStatus === 'checking' && (
-            <span className="app-nav__auth-hint">checking…</span>
-          )}
-          {authStatus === 'logged-out' && (
-            <button className="app-nav__auth-btn" onClick={loginWithSpotify}>
-              Log in with Spotify
-            </button>
-          )}
-          {authStatus === 'logged-in' && (
-            <>
-              <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleFetchProfile}>
-                {profile ? `✓ ${profile.display_name}` : 'Verify token'}
-              </button>
-              <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleLogout}>
-                Log out
-              </button>
-            </>
-          )}
-          {authStatus === 'error' && (
-            <span className="app-nav__auth-hint app-nav__auth-hint--error">{error}</span>
-          )}
+          <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleFetchProfile}>
+            {profile ? `✓ ${profile.display_name}` : 'Verify token'}
+          </button>
+          <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleLogout}>
+            Log out
+          </button>
         </div>
       </nav>
 
-      {/* ── Tab content ── */}
       <main>
-        {activeTab === 'import'   && <ImportPipeline isLoggedIn={loggedIn} />}
+        {activeTab === 'import'   && <ImportPipeline isLoggedIn={true} />}
         {activeTab === 'parser'   && <SongsInput />}
-        {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={loggedIn} />}
+        {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={true} />}
       </main>
 
-      {/* Debug profile dump (dev only) */}
       {profile && (
         <pre style={{ textAlign: 'left', display: 'inline-block', margin: '1rem 40px', fontSize: 12 }}>
           {JSON.stringify(profile, null, 2)}

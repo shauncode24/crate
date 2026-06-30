@@ -1,0 +1,67 @@
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  width: 100%;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.welcome--checking {
+  gap: 0;
+}
+
+.welcome__checking-mark {
+  display: flex;
+}
+
+.welcome__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  max-width: 420px;
+  text-align: center;
+}
+
+.welcome__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.welcome__title {
+  font-size: 40px;
+  letter-spacing: 1px;
+}
+
+.welcome__subtitle {
+  font-size: 17px;
+  line-height: 150%;
+  color: var(--text);
+}
+
+.welcome__cta {
+  width: 100%;
+  max-width: 280px;
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome__error {
+  font: 13px/1.5 var(--mono);
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+@media (max-width: 480px) {
+  .welcome__title { font-size: 32px; }
+  .welcome__subtitle { font-size: 15px; }
+}
+
