@@ -1,5 +1,8 @@
+import './StepBreadcrumb.css';
+
 const STEPS = [
   { id: 'input',   label: 'Input'   },
+
   { id: 'resolve', label: 'Resolve' },
   { id: 'preview', label: 'Review'  },
   { id: 'report',  label: 'Report'  },

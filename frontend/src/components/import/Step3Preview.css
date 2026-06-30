@@ -1,0 +1,127 @@
+.step3-naming {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.step3-naming__card {
+  padding: 20px 22px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.step3-naming__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.step3-naming__sparkle {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.step3-naming__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.step3-naming__subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  margin-top: 2px;
+}
+
+.step3-naming__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step3-naming__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.step3-naming__label {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.step3-naming__input {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: var(--bg);
+  color: var(--text-h);
+  font: 14px/1.4 var(--sans);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.step3-naming__input--name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.step3-naming__input:focus {
+  border-color: rgba(139, 92, 246, 0.7);
+}
+
+.step3-naming__hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  margin: 0;
+}
+
+.step3-naming__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.step3-naming__back {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.step3-naming__back:hover {
+  border-color: var(--text-h);
+}
+
+.step3-naming__finalize {
+  flex: 2;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.step3-naming__finalize:hover {
+  background: var(--brand-hover);
+  transform: scale(1.02);
+}
