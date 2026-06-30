@@ -180,3 +180,18 @@ code {
     opacity: 0.55;
   }
 }
+
+/* ── Page shell for the new screen-based import flow ── */
+.import-page {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.import-page__inner {
+  max-width: 880px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 32px 16px 48px;
+}
