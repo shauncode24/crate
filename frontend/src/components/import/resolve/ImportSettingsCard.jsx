@@ -71,6 +71,14 @@ export default function ImportSettingsCard({
                   />
                 </div>
               )}
+
+              <p className="resolve-field__help-text">
+                {selectedPlaylistId === 'custom'
+                  ? 'To find the ID, copy the Spotify playlist link and extract the characters after "/playlist/" (e.g., 37i9dQZF1DXcBWIGgo7BmE).'
+                  : selectedPlaylistId
+                  ? 'Matched tracks will be appended directly to your selected existing playlist.'
+                  : 'Crate will create a brand new public playlist in your Spotify account with your matched tracks.'}
+              </p>
             </div>
           )}
         </div>

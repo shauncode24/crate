@@ -39,7 +39,12 @@ export default function Step2Resolve({
   return (
     <div className="step2">
       {/* Extracted track chips collapsible accordion */}
-      <ExtractedSongsPanel songs={songs} onBack={onBack} />
+      <ExtractedSongsPanel
+        songs={songs}
+        resolveState={resolveState}
+        resolveResults={resolveResults}
+        onBack={onBack}
+      />
 
       {/* Spotify search progress indicator, rates limits, and controls */}
       <SearchProgressCard
@@ -52,12 +57,14 @@ export default function Step2Resolve({
       />
 
       {/* Dynamic match quality metrics row (Ready, Need Review, Not Found) */}
-      <MatchStatusGrid
-        autoCount={autoCount}
-        reviewCount={reviewCount}
-        missingCount={missingCount}
-        resolveState={resolveState}
-      />
+      {resolveState !== 'idle' && (
+        <MatchStatusGrid
+          autoCount={autoCount}
+          reviewCount={reviewCount}
+          missingCount={missingCount}
+          resolveState={resolveState}
+        />
+      )}
 
       {/* Import options (target playlist & dups check) after resolution completes */}
       {resolveState === 'done' && (
@@ -75,11 +82,6 @@ export default function Step2Resolve({
         />
       )}
 
-      {/* Live resolve logs and result grid */}
-      <ResultChipsGrid
-        resolveResults={resolveResults}
-        resolveState={resolveState}
-      />
     </div>
   );
 }

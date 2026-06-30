@@ -4,10 +4,18 @@ import React, { useState } from 'react';
  * ExtractedSongsPanel
  * Collapsible panel showing the raw songs extracted in Step 1.
  */
-export default function ExtractedSongsPanel({ songs = [], onBack }) {
+export default function ExtractedSongsPanel({
+  songs = [],
+  resolveState,
+  resolveResults = [],
+  onBack,
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   if (songs.length === 0) return null;
+
+  const hasResults = resolveState === 'running' || resolveState === 'done';
+  const panelLabel = hasResults ? 'Spotify Match Status' : 'Extracted Track List';
 
   return (
     <div className={`resolve-card resolve-songs-panel ${isOpen ? 'resolve-songs-panel--open' : ''}`}>
@@ -22,7 +30,7 @@ export default function ExtractedSongsPanel({ songs = [], onBack }) {
           >
             <polyline points="9 18 15 12 9 6" />
           </svg>
-          <span className="resolve-songs-panel__label">Extracted Track List</span>
+          <span className="resolve-songs-panel__label">{panelLabel}</span>
           <span className="resolve-songs-panel__count">{songs.length} tracks detected</span>
         </div>
         <button
@@ -44,15 +52,35 @@ export default function ExtractedSongsPanel({ songs = [], onBack }) {
       {isOpen && (
         <div className="resolve-songs-panel__content">
           <div className="resolve-song-chips">
-            {songs.map((song, i) => (
-              <div key={i} className="resolve-song-chip">
-                <span className="resolve-song-chip__num">{i + 1}</span>
-                <span className="resolve-song-chip__title">{song.title}</span>
-                {song.artist && (
-                  <span className="resolve-song-chip__artist">by {song.artist}</span>
-                )}
-              </div>
-            ))}
+            {songs.map((song, i) => {
+              const result = resolveResults[i];
+              const hasResult = !!result;
+              const status = result?.status; // 'auto' | 'review' | 'notfound'
+
+              let chipClass = '';
+
+              if (hasResults) {
+                if (!hasResult) {
+                  chipClass = 'resolve-song-chip--pending';
+                } else if (status === 'auto') {
+                  chipClass = 'resolve-song-chip--auto';
+                } else if (status === 'review') {
+                  chipClass = 'resolve-song-chip--review';
+                } else {
+                  chipClass = 'resolve-song-chip--notfound';
+                }
+              }
+
+              return (
+                <div key={i} className={`resolve-song-chip ${chipClass}`}>
+                  <span className="resolve-song-chip__num">{i + 1}</span>
+                  <span className="resolve-song-chip__title">{song.title}</span>
+                  {song.artist && (
+                    <span className="resolve-song-chip__artist">by {song.artist}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
