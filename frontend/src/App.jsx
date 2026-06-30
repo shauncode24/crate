@@ -12,6 +12,7 @@ import SongsInput        from './components/songsInput.jsx';
 import ResolverPlayground from './components/resolverPlayground.jsx';
 import ImportPipeline    from './components/importPipeline.jsx';
 import './App.css';
+import ImportPage from './pages/ImportPage.jsx';
 
 const TABS = [
   { id: 'import',   label: 'Import'   },
@@ -103,7 +104,13 @@ export default function App() {
       </nav>
 
       <main>
-        {activeTab === 'import'   && <ImportPipeline isLoggedIn={true} />}
+        {activeTab === 'import'   && (
+          <ImportPage
+            isLoggedIn={true}
+            profile={profile}
+            onLogout={handleLogout}
+          />
+        )}
         {activeTab === 'parser'   && <SongsInput />}
         {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={true} />}
       </main>

@@ -1,26 +1,8 @@
 /**
- * batchReviewUI.jsx — Phase 10: Batch Review UI
+ * batchReviewUI.jsx — Phase 10: Batch Review UI (Stateless)
  *
- * Resolves every ⚠ "needs review" item in one screen instead of a
- * pop-up per song. For each song:
- *   - radio options for its top 3 candidates (title / artist / score)
- *   - a "none of these — search manually" radio that reveals a free-text
- *     input; submitting it calls onManualSearch(originalIndex, text),
- *     which re-runs the resolver (Phase 5/6) against the corrected text
- *     and swaps in the new candidates as fresh radio options
- *
- * "Confirm All" stays disabled until every song has a pick (a candidate,
- * a manual-search result, or an explicit skip). On confirm it hands the
- * parent a { [originalIndex]: ResolvedMatch } map where every picked song
- * carries status: 'resolved-by-review' + resolutionMethod:
- * 'batch-review-pick' (skips carry 'skipped' / 'batch-review-skip') — so
- * there are zero review items left afterward.
- *
- * Props:
- *   items          — [{ match: ResolvedMatch, originalIndex }], review-bucket only
- *   onManualSearch — async (originalIndex, text) => ResolvedMatch-like result.
- *                    Optional — manual search disables itself (with a hint) if omitted.
- *   onConfirmAll   — ({ [originalIndex]: ResolvedMatch }) => void
+ * Displays all needs-review items. Making selections immediately
+ * updates the parent state, unlocking the main import button directly.
  */
 
 import { useState, useCallback } from 'react';
@@ -54,8 +36,8 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
   const [manualNotice, setManualNotice] = useState(null);
 
   const groupName = `review-${originalIndex}`;
-  const isSkipSelected      = selection?.type === 'skip';
-  const selectedCandidateId = selection?.type === 'candidate' ? selection.candidate.id : null;
+  const isSkipSelected      = Boolean(selection?.skipped);
+  const selectedCandidateId = selection?.chosen?.id ?? null;
   const manualSearchEnabled = Boolean(onManualSearch);
 
   function openManual() {
@@ -106,8 +88,8 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
             </span>
           )}
         </div>
-        <span className={`brv-song__status brv-song__status--${selection ? 'picked' : 'pending'}`}>
-          {selection ? (isSkipSelected ? 'skipped' : 'picked') : 'needs a pick'}
+        <span className={`brv-song__status brv-song__status--${selection?.resolved ? 'picked' : 'pending'}`}>
+          {selection?.resolved ? (isSkipSelected ? 'skipped' : 'picked') : 'needs a pick'}
         </span>
       </div>
 
@@ -193,69 +175,20 @@ function SongReview({ entry, selection, onSelectCandidate, onSelectSkip, onManua
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function BatchReviewUI({ items, onManualSearch, onConfirmAll, exactTrackIds = [], nearDuplicateTrackIds = {} }) {
-  const [selections, setSelections] = useState(() => {
-    const initial = {};
-    items.forEach(({ match, originalIndex }) => {
-      if (match.isDuplicate) {
-        initial[originalIndex] = { type: 'skip' };
-      }
-    });
-    return initial;
-  });
-
-  const handleSelectCandidate = useCallback((originalIndex, candidate) => {
-    setSelections((prev) => {
-      if (candidate === null) {
-        const next = { ...prev };
-        delete next[originalIndex];
-        return next;
-      }
-      return { ...prev, [originalIndex]: { type: 'candidate', candidate } };
-    });
-  }, []);
-
-  const handleSelectSkip = useCallback((originalIndex) => {
-    setSelections((prev) => {
-      if (prev[originalIndex]?.type === 'skip') {
-        const next = { ...prev };
-        delete next[originalIndex];
-        return next;
-      }
-      return { ...prev, [originalIndex]: { type: 'skip' } };
-    });
-  }, []);
-
-  const handleSelectAllHighest = useCallback(() => {
-    setSelections((prev) => {
-      const next = { ...prev };
-      items.forEach(({ match, originalIndex }) => {
-        const options = match.topCandidates?.length
-          ? match.topCandidates
-          : (match.allCandidates ?? []).slice(0, 3);
-        if (options && options.length > 0) {
-          next[originalIndex] = { type: 'candidate', candidate: options[0] };
-        }
-      });
-      return next;
-    });
-  }, [items]);
-
-  const allSelected   = items.length > 0 && items.every(({ originalIndex }) => Boolean(selections[originalIndex]));
-  const pendingCount  = items.filter(({ originalIndex }) => !selections[originalIndex]).length;
-
-  function handleConfirmAll() {
-    if (!allSelected) return;
-    const resultsMap = {};
-    items.forEach(({ match, originalIndex }) => {
-      const sel = selections[originalIndex];
-      resultsMap[originalIndex] =
-        sel.type === 'candidate'
-          ? { ...match, status: 'resolved-by-review', chosen: sel.candidate, resolutionMethod: 'batch-review-pick' }
-          : { ...match, status: 'skipped', chosen: null, resolutionMethod: 'batch-review-skip' };
-    });
-    onConfirmAll?.(resultsMap);
-  }
+export default function BatchReviewUI({
+  items,
+  reviewState,
+  onSelectCandidate,
+  onSelectSkip,
+  onSelectAllHighest,
+  onManualSearch,
+  exactTrackIds = [],
+  nearDuplicateTrackIds = {}
+}) {
+  const totalCount = items.length;
+  const resolvedCount = items.filter(({ originalIndex }) => reviewState[originalIndex]?.resolved).length;
+  const allResolved = totalCount > 0 && resolvedCount === totalCount;
+  const pendingCount = totalCount - resolvedCount;
 
   return (
     <div className="brv">
@@ -263,39 +196,33 @@ export default function BatchReviewUI({ items, onManualSearch, onConfirmAll, exa
         <button
           type="button"
           className="brv-batch-btn"
-          onClick={handleSelectAllHighest}
+          onClick={onSelectAllHighest}
         >
           ✨ Select all highest rated candidates
         </button>
       </div>
+
       <ul className="brv-list">
         {items.map((entry) => (
           <SongReview
             key={entry.originalIndex}
             entry={entry}
-            selection={selections[entry.originalIndex] ?? null}
-            onSelectCandidate={handleSelectCandidate}
-            onSelectSkip={handleSelectSkip}
+            selection={reviewState[entry.originalIndex] ?? null}
+            onSelectCandidate={onSelectCandidate}
+            onSelectSkip={onSelectSkip}
             onManualSearch={onManualSearch}
             exactTrackIds={exactTrackIds}
             nearDuplicateTrackIds={nearDuplicateTrackIds}
           />
         ))}
       </ul>
-      <div className="brv-footer">
+
+      <div className="brv-footer" style={{ borderTop: '1px solid var(--border)', marginTop: '20px' }}>
         <span className="brv-footer__hint">
-          {allSelected
+          {allResolved
             ? 'Everything has a pick.'
             : `${pendingCount} song${pendingCount !== 1 ? 's' : ''} still need${pendingCount === 1 ? 's' : ''} a pick.`}
         </span>
-        <button
-          type="button"
-          className={`brv-confirm-btn ${allSelected ? 'brv-confirm-btn--unlocked' : ''}`}
-          onClick={handleConfirmAll}
-          disabled={!allSelected}
-        >
-          Confirm All ({items.length})
-        </button>
       </div>
     </div>
   );

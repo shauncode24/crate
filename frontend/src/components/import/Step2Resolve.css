@@ -1,0 +1,83 @@
+.step2__repaste {
+  font: 11px/1 var(--mono);
+  background: none;
+  border: none;
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.step2__playlist-selector {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.step2__playlist-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.step2__loading-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.step2__playlist-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+
+.step2__select,
+.step2__custom-input {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-h);
+  font: 14px/1.4 var(--sans);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.step2__select:focus,
+.step2__custom-input:focus {
+  border-color: var(--text-h);
+}
+
+.step2__dedup-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.step2__result-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.step2__chip {
+  font: 11px/1 var(--mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.step2__chip--auto    { background: rgba(29,185,84,0.12); color: #1db954; }
+.step2__chip--review  { background: rgba(255,164,43,0.12); color: #d97706; }
+.step2__chip--notfound{ background: var(--code-bg); color: var(--text); }

@@ -243,9 +243,16 @@ function CandidatePicker({ candidates, selectedId, onSelect, onSkip, exactTrackI
   );
 }
 
-// ── Review section ───────────────────────────────────────────────────────────
-
-function ReviewSection({ items, reviewState, onReviewChange, onManualSearch, exactTrackIds, nearDuplicateTrackIds }) {
+function ReviewSection({
+  items,
+  reviewState,
+  onSelectCandidate,
+  onSelectSkip,
+  onSelectAllHighest,
+  onManualSearch,
+  exactTrackIds,
+  nearDuplicateTrackIds
+}) {
   if (items.length === 0) return null;
 
   return (
@@ -265,18 +272,13 @@ function ReviewSection({ items, reviewState, onReviewChange, onManualSearch, exa
 
       <BatchReviewUI
         items={items}
+        reviewState={reviewState}
+        onSelectCandidate={onSelectCandidate}
+        onSelectSkip={onSelectSkip}
+        onSelectAllHighest={onSelectAllHighest}
         onManualSearch={onManualSearch}
         exactTrackIds={exactTrackIds}
         nearDuplicateTrackIds={nearDuplicateTrackIds}
-        onConfirmAll={(resultsMap) => {
-          Object.entries(resultsMap).forEach(([idx, resolvedMatch]) => {
-            onReviewChange(Number(idx), {
-              resolved: true,
-              chosen: resolvedMatch.chosen,
-              skipped: resolvedMatch.status === 'skipped',
-            });
-          });
-        }}
       />
     </Section>
   );
@@ -315,15 +317,13 @@ function MissingSection({ items }) {
 
 // ── Summary bar ───────────────────────────────────────────────────────────────
 
-function SummaryBar({ readyCount, reviewPendingCount, missingCount, onConfirm, confirmed, hasPlaylist = true }) {
-  const canConfirm = reviewPendingCount === 0 && !confirmed;
-  const total = readyCount + missingCount; // items that will be added
+function SummaryBar({ readyCount, reviewPendingCount, missingCount, onConfirm, hasPlaylist = true }) {
+  const canConfirm = reviewPendingCount === 0;
+  const total = readyCount + missingCount;
 
-  const buttonText = confirmed 
-    ? 'Imported ✓' 
-    : !hasPlaylist
-      ? `Import to New Playlist${total ? ` (${total})` : ''}`
-      : `Confirm Import${total ? ` (${total})` : ''}`;
+  const buttonText = !hasPlaylist
+    ? `Import to New Playlist${total ? ` (${total})` : ''}`
+    : `Confirm Import${total ? ` (${total})` : ''}`;
 
   const buttonTitle = reviewPendingCount > 0
     ? `Resolve ${reviewPendingCount} remaining review item${reviewPendingCount !== 1 ? 's' : ''} first`
@@ -419,11 +419,6 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
     });
     return initial;
   });
-  const [confirmed, setConfirmed] = useState(false);
-
-  const handleReviewChange = useCallback((index, state) => {
-    setReviewState((prev) => ({ ...prev, [index]: state }));
-  }, []);
 
   // Partition matches into three buckets, keeping original index for correlation
   const { readyItems, reviewItems, missingItems } = useMemo(() => {
@@ -435,17 +430,68 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
       if (match.status === 'auto') {
         ready.push(item);
       } else if (match.status === 'review') {
-        if (rs?.resolved && rs.chosen) {
-          ready.push(item);
-        } else {
-          review.push(item);
-        }
+        review.push(item);
       } else {
         missing.push(item);
       }
     });
     return { readyItems: ready, reviewItems: review, missingItems: missing };
   }, [resolvedMatches, reviewState]);
+
+  const handleSelectCandidate = useCallback((originalIndex, candidate) => {
+    setReviewState((prev) => {
+      if (candidate === null) {
+        const next = { ...prev };
+        delete next[originalIndex];
+        return next;
+      }
+      return {
+        ...prev,
+        [originalIndex]: {
+          resolved: true,
+          chosen: candidate,
+          skipped: false,
+        }
+      };
+    });
+  }, []);
+
+  const handleSelectSkip = useCallback((originalIndex) => {
+    setReviewState((prev) => {
+      if (prev[originalIndex]?.skipped) {
+        const next = { ...prev };
+        delete next[originalIndex];
+        return next;
+      }
+      return {
+        ...prev,
+        [originalIndex]: {
+          resolved: true,
+          chosen: null,
+          skipped: true,
+        }
+      };
+    });
+  }, []);
+
+  const handleSelectAllHighest = useCallback(() => {
+    setReviewState((prev) => {
+      const next = { ...prev };
+      reviewItems.forEach(({ match, originalIndex }) => {
+        const options = match.topCandidates?.length
+          ? match.topCandidates
+          : (match.allCandidates ?? []).slice(0, 3);
+        if (options && options.length > 0) {
+          next[originalIndex] = {
+            resolved: true,
+            chosen: options[0],
+            skipped: false,
+          };
+        }
+      });
+      return next;
+    });
+  }, [reviewItems]);
 
   const reviewPendingCount = reviewItems.filter(
     ({ originalIndex }) => !reviewState[originalIndex]?.resolved
@@ -484,7 +530,6 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
   }, [resolvedMatches, reviewState]);
 
   function handleConfirm() {
-    setConfirmed(true);
     onConfirm?.(resolvedForCommit);
   }
 
@@ -493,22 +538,6 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
     return resolvedForCommit.filter((m) => m && (m.status === 'auto' || m.status === 'resolved-by-review')).length;
   }, [resolvedForCommit]);
 
-  if (confirmed) {
-    return (
-      <div className="drp">
-        <SummaryBar
-          readyCount={finalReadyCount}
-          reviewPendingCount={0}
-          missingCount={missingItems.length}
-          onConfirm={handleConfirm}
-          confirmed
-          hasPlaylist={hasPlaylist}
-        />
-        <ConfirmedState readyCount={finalReadyCount} onBack={onBack} />
-      </div>
-    );
-  }
-
   return (
     <div className="drp">
       <SummaryBar
@@ -516,21 +545,22 @@ export default function DryRunPreview({ resolvedMatches, onConfirm, onBack, onMa
         reviewPendingCount={reviewPendingCount}
         missingCount={missingItems.length}
         onConfirm={handleConfirm}
-        confirmed={false}
         hasPlaylist={hasPlaylist}
       />
 
       <ReadySection
         items={readyItems}
         reviewState={reviewState}
-        onReviewChange={handleReviewChange}
+        onReviewChange={handleSelectCandidate} // fallback if expanded overrides are used
         exactTrackIds={exactTrackIds}
         nearDuplicateTrackIds={nearDuplicateTrackIds}
       />
       <ReviewSection
         items={reviewItems}
         reviewState={reviewState}
-        onReviewChange={handleReviewChange}
+        onSelectCandidate={handleSelectCandidate}
+        onSelectSkip={handleSelectSkip}
+        onSelectAllHighest={handleSelectAllHighest}
         onManualSearch={onManualSearch}
         exactTrackIds={exactTrackIds}
         nearDuplicateTrackIds={nearDuplicateTrackIds}
