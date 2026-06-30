@@ -1,24 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './Step4Report.css';
 import ImportHeader from './report/ImportHeader.jsx';
-import MetricsDashboard from './report/MetricsDashboard.jsx';
 import ReportTabPanel from './report/ReportTabPanel.jsx';
 import ReportFooterActions from './report/ReportFooterActions.jsx';
 
 /**
  * Step4Report — import result dashboard.
- * Orchestrates ImportHeader, MetricsDashboard, ReportTabPanel, and ReportFooterActions.
+ * Orchestrates ImportHeader, ReportTabPanel, and ReportFooterActions.
  */
 export default function Step4Report({
   commitState = 'idle',
   report = null,
-  runMetrics = null,
   playlistId = '',
   onRetry,
   onReset,
 }) {
-  const [activeTab, setActiveTab] = useState('added');
-
   // Loading indicator view
   if (commitState === 'running') {
     return (
@@ -44,18 +40,13 @@ export default function Step4Report({
         hasFailures={hasFailures} 
       />
 
-      {/* 2. Run metrics dashboard summary cards */}
-      <MetricsDashboard runMetrics={runMetrics} />
-
-      {/* 3. Detailed track categories list tabs */}
+      {/* 2. Detailed track categories list tabs inside collapsible box */}
       <ReportTabPanel 
         report={report} 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
         onRetry={onRetry} 
       />
 
-      {/* 4. Footer retry / import another list actions */}
+      {/* 3. Footer retry / import another list actions */}
       <ReportFooterActions 
         hasFailures={hasFailures} 
         onRetry={onRetry} 

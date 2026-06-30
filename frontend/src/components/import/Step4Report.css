@@ -1,11 +1,11 @@
 /* ==========================================================================
-   Step4Report.css — Phase 11 UI Revamp
+   Step4Report.css — Phase 11 UI Revamp (Collapsible Tab Box Edition)
    ========================================================================== */
 
 .rpt {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -134,77 +134,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   2. Metrics Summary Dashboard
-   -------------------------------------------------------------------------- */
-
-.rpt-dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rpt-dashboard__title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.8px;
-  margin: 0 0 4px 0;
-}
-
-.rpt-dashboard__grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-}
-
-.rpt-metric-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.2s ease;
-}
-
-.rpt-metric-card__value {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--text-h);
-}
-
-.rpt-metric-card__label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-muted);
-  line-height: 1.2;
-}
-
-/* Cache hit rate premium highlight variant */
-.rpt-metric-card--success {
-  background: rgba(29, 185, 84, 0.05);
-  border-color: rgba(29, 185, 84, 0.15);
-}
-.rpt-metric-card--success .rpt-metric-card__value {
-  color: var(--brand);
-}
-
-/* Warning/Retries alert highlight variant */
-.rpt-metric-card--warning {
-  background: rgba(255, 164, 43, 0.04);
-  border-color: rgba(255, 164, 43, 0.15);
-}
-.rpt-metric-card--warning .rpt-metric-card__value {
-  color: #d97706;
-}
-html[data-theme='dark'] .rpt-metric-card--warning .rpt-metric-card__value {
-  color: var(--warning);
-}
-
-/* --------------------------------------------------------------------------
-   3. Report Tab Panel (Added, Skipped, Not Found, Failed)
+   2. Report Panel containing Tabs Row and Collapsible Trigger Arrow
    -------------------------------------------------------------------------- */
 
 .rpt-panel {
@@ -217,19 +147,33 @@ html[data-theme='dark'] .rpt-metric-card--warning .rpt-metric-card__value {
   flex-direction: column;
 }
 
-/* Tabs Row */
-.rpt-panel__tabs {
+/* Tabs Header wrapper containing triggers + collapse arrow button */
+.rpt-panel__tabs-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: var(--bg-elevated);
   border-bottom: 1.5px solid var(--border);
+  padding-right: 12px;
+  box-sizing: border-box;
+}
+
+.rpt-panel__tabs-header--collapsed {
+  border-bottom-color: transparent;
+}
+
+/* Tabs list container */
+.rpt-panel__tabs {
+  display: flex;
+  flex: 1;
 }
 
 .rpt-panel__tab-btn {
   flex: 1;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  padding: 12px 16px;
+  border-bottom: 2.5px solid transparent;
+  padding: 14px 16px;
   font-size: 13.5px;
   font-weight: 700;
   color: var(--text-muted);
@@ -250,6 +194,38 @@ html[data-theme='dark'] .rpt-panel__tab-btn:hover {
 .rpt-panel__tab-btn--active {
   color: var(--text-h);
   border-bottom-color: var(--brand);
+}
+
+/* Collapse Arrow triggers button */
+.rpt-panel__collapse-btn {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  margin-left: 12px;
+}
+
+.rpt-panel__collapse-btn:hover {
+  background: var(--border);
+  color: var(--text-h);
+}
+
+.rpt-panel__collapse-chevron {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rpt-panel__collapse-chevron--collapsed {
+  transform: rotate(180deg);
 }
 
 .rpt-panel__content {
@@ -398,7 +374,7 @@ html[data-theme='dark'] .panel-track-row__badge--lo {
 }
 
 /* --------------------------------------------------------------------------
-   4. Not Found & Failed pane specifics
+   3. Not Found & Failed pane specifics
    -------------------------------------------------------------------------- */
 
 .tab-pane__action-header {
@@ -490,7 +466,7 @@ html[data-theme='dark'] .panel-track-row__badge--lo {
 }
 
 /* --------------------------------------------------------------------------
-   5. Footer Action Bar
+   4. Footer Action Bar
    -------------------------------------------------------------------------- */
 
 .rpt-footer {
@@ -546,25 +522,31 @@ html[data-theme='dark'] .panel-track-row__badge--lo {
 }
 
 /* --------------------------------------------------------------------------
-   6. Responsiveness
+   5. Responsiveness
    -------------------------------------------------------------------------- */
 
 @media (max-width: 768px) {
-  .rpt-dashboard__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .rpt-dashboard__grid > *:last-child {
-    grid-column: span 2;
+  .rpt-panel__tabs-header {
+    flex-wrap: wrap;
+    padding-right: 0;
   }
 
   .rpt-panel__tabs {
     flex-wrap: wrap;
+    width: 100%;
   }
 
   .rpt-panel__tab-btn {
     flex: none;
     width: 50%;
+  }
+
+  .rpt-panel__collapse-btn {
+    width: 100%;
+    border-radius: 0;
+    margin: 0;
+    border-top: 1px solid var(--border);
+    padding: 8px 0;
   }
 
   .rpt-footer {
