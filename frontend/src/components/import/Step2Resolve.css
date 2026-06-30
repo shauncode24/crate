@@ -1,83 +1,733 @@
-.step2__repaste {
-  font: 11px/1 var(--mono);
-  background: none;
-  border: none;
-  color: var(--text);
-  opacity: 0.5;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
+/* ==========================================================================
+   Step2Resolve — New Premium Cards & Layout Redesign
+   ========================================================================== */
+
+.step2 {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
 }
 
-.step2__playlist-selector {
-  margin-top: 16px;
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
+/* Base Card Style */
+.resolve-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 32px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.step2__playlist-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-h);
+.resolve-card:hover {
+  box-shadow: var(--shadow);
 }
 
-.step2__loading-hint {
-  font-size: 13px;
-  color: var(--text-muted);
+/* --------------------------------------------------------------------------
+   1. Search Progress Card
+   -------------------------------------------------------------------------- */
+
+.resolve-search-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 }
 
-.step2__playlist-inputs {
+.resolve-search-card__header {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 400px;
+  max-width: 500px;
 }
 
-.step2__select,
-.step2__custom-input {
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
+.resolve-search-card__title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
   color: var(--text-h);
-  font: 14px/1.4 var(--sans);
+}
+
+.resolve-search-card__subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Progress bar styling */
+.resolve-progress {
   width: 100%;
-  outline: none;
-  transition: border-color 0.15s;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.step2__select:focus,
-.step2__custom-input:focus {
-  border-color: var(--text-h);
+.resolve-progress__labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.step2__dedup-label {
+.resolve-progress__status {
+  color: var(--text-h);
+}
+
+.resolve-progress__count {
+  color: var(--text-muted);
+}
+
+.resolve-progress__track {
+  height: 8px;
+  background: var(--bg);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+
+.resolve-progress__fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: var(--radius-full);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Login hint & search actions */
+.resolve-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.resolve-login-hint {
   display: inline-flex;
   align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--warning-bg);
+  border: 1px solid rgba(255, 164, 43, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.resolve-login-hint__icon {
+  font-size: 18px;
+}
+
+.resolve-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  font-size: 13px;
-  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: none;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 12px 28px;
+}
+
+.resolve-btn--primary {
+  background: var(--text-h);
+  color: var(--bg-elevated);
+}
+
+.resolve-btn--primary:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+/* Alerts (rate-limit / errors) */
+.resolve-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 540px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.resolve-alert--warning {
+  background: var(--warning-bg);
+  border: 1px solid rgba(255, 164, 43, 0.25);
+  color: #b45309;
+}
+
+html[data-theme='dark'] .resolve-alert--warning {
+  color: #fbbf24;
+}
+
+.resolve-alert--danger {
+  background: var(--danger-bg);
+  border: 1px solid rgba(233, 20, 41, 0.25);
+  color: var(--danger);
+}
+
+.resolve-alert__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   2. Status Grid (Ready, Need Review, Not Found)
+   -------------------------------------------------------------------------- */
+
+.resolve-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.resolve-status-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.7;
+}
+
+.resolve-status-card--active {
+  opacity: 1;
+}
+
+.resolve-status-card__icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.resolve-status-card__icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Dynamic State Colors for Cards */
+.resolve-status-card--ready .resolve-status-card__icon-wrapper {
+  background: rgba(29, 185, 84, 0.08);
+  border: 1.5px solid rgba(29, 185, 84, 0.2);
+  color: var(--brand);
+}
+
+.resolve-status-card--ready.resolve-status-card--active {
+  border-color: rgba(29, 185, 84, 0.3);
+}
+
+.resolve-status-card--review .resolve-status-card__icon-wrapper {
+  background: rgba(255, 164, 43, 0.08);
+  border: 1.5px solid rgba(255, 164, 43, 0.2);
+  color: var(--warning);
+}
+
+.resolve-status-card--review.resolve-status-card--active {
+  border-color: rgba(255, 164, 43, 0.3);
+}
+
+.resolve-status-card--notfound .resolve-status-card__icon-wrapper {
+  background: rgba(233, 20, 41, 0.06);
+  border: 1.5px solid rgba(233, 20, 41, 0.2);
+  color: var(--danger);
+}
+
+.resolve-status-card--notfound.resolve-status-card--active {
+  border-color: rgba(233, 20, 41, 0.3);
+}
+
+/* Hover scales active status cards */
+.resolve-status-card--active:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.resolve-status-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resolve-status-card__number {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-h);
+}
+
+.resolve-status-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   3. Import Settings Card
+   -------------------------------------------------------------------------- */
+
+.resolve-settings-card__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin-bottom: 24px;
+}
+
+.resolve-settings-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Form field layouts */
+.resolve-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resolve-field__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.resolve-field__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+.resolve-field__inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Inputs & dropdown overrides */
+.resolve-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.resolve-select {
+  width: 100%;
+  appearance: none;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resolve-select:focus {
+  border-color: var(--text-h);
+  box-shadow: 0 0 0 2px var(--border);
+}
+
+.resolve-select-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+}
+
+.resolve-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.resolve-input:focus {
+  border-color: var(--text-h);
+  box-shadow: 0 0 0 2px var(--border);
+}
+
+/* Custom premium Checkbox design */
+.resolve-checkbox-field {
+  padding-top: 4px;
+}
+
+.resolve-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
   user-select: none;
 }
 
-.step2__result-chips {
+.resolve-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.resolve-checkbox-custom {
+  position: relative;
+  height: 20px;
+  width: 20px;
+  background-color: var(--bg-elevated);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.resolve-checkbox:checked ~ .resolve-checkbox-custom {
+  background-color: var(--brand);
+  border-color: var(--brand);
+}
+
+.resolve-checkbox-custom::after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.resolve-checkbox:checked ~ .resolve-checkbox-custom::after {
+  display: block;
+}
+
+.resolve-checkbox-text {
+  transition: color 0.2s ease;
+}
+
+.resolve-checkbox:checked ~ .resolve-checkbox-text {
+  color: var(--text-h);
+}
+
+/* Settings button actions */
+.resolve-settings-card__actions {
+  margin-top: 8px;
+}
+
+.resolve-btn--submit {
+  width: 100%;
+  background: var(--brand);
+  color: #ffffff;
+  padding: 16px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.2);
+}
+
+.resolve-btn--submit:hover:not(:disabled) {
+  background: var(--brand-hover);
+  box-shadow: 0 6px 16px rgba(29, 185, 84, 0.35);
+  transform: translateY(-1px);
+}
+
+.resolve-btn--submit:disabled {
+  background: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   4. Extracted Songs Panel
+   -------------------------------------------------------------------------- */
+
+.resolve-songs-panel {
+  padding: 0; /* Clear default card padding */
+  overflow: hidden;
+}
+
+.resolve-songs-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.resolve-songs-panel__header:hover {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+html[data-theme='dark'] .resolve-songs-panel__header:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.resolve-songs-panel__title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resolve-songs-panel__chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.resolve-songs-panel--open .resolve-songs-panel__chevron {
+  transform: rotate(90deg);
+}
+
+.resolve-songs-panel__label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.resolve-songs-panel__count {
+  font-size: 12px;
+  background: var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.resolve-songs-panel__repaste {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.resolve-songs-panel__repaste:hover {
+  color: var(--text-h);
+  background: var(--border);
+}
+
+.resolve-songs-panel__content {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* Horizontal chip tags layout */
+.resolve-song-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 8px;
 }
 
-.step2__chip {
-  font: 11px/1 var(--mono);
-  padding: 2px 6px;
-  border-radius: 3px;
+.resolve-song-chip {
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-h);
 }
 
-.step2__chip--auto    { background: rgba(29,185,84,0.12); color: #1db954; }
-.step2__chip--review  { background: rgba(255,164,43,0.12); color: #d97706; }
-.step2__chip--notfound{ background: var(--code-bg); color: var(--text); }
+.resolve-song-chip__num {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.resolve-song-chip__artist {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Results Grid Card
+   -------------------------------------------------------------------------- */
+
+.resolve-results-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 20px;
+}
+
+.resolve-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.resolve-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-h);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resolve-chip__status-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resolve-chip__status-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.resolve-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resolve-chip__artist-text {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Specific state designs for result chips */
+.resolve-chip--auto {
+  background: rgba(29, 185, 84, 0.04);
+  border-color: rgba(29, 185, 84, 0.15);
+}
+.resolve-chip--auto .resolve-chip__status-icon {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.resolve-chip--review {
+  background: rgba(255, 164, 43, 0.04);
+  border-color: rgba(255, 164, 43, 0.15);
+}
+.resolve-chip--review .resolve-chip__status-icon {
+  background: var(--warning);
+  color: #ffffff;
+}
+
+.resolve-chip--notfound {
+  background: rgba(233, 20, 41, 0.03);
+  border-color: rgba(233, 20, 41, 0.12);
+}
+.resolve-chip--notfound .resolve-chip__status-icon {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.resolve-chip--pending {
+  opacity: 0.6;
+}
+
+.resolve-chip:hover:not(.resolve-chip--pending) {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   6. General Utilities & Responsiveness
+   -------------------------------------------------------------------------- */
+
+.resolve-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--text-h);
+  border-radius: 50%;
+}
+
+.resolve-spinner--light {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
+}
+
+.resolve-spinner--small {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+@media (max-width: 768px) {
+  .resolve-status-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .resolve-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resolve-card {
+    padding: 20px;
+  }
+}

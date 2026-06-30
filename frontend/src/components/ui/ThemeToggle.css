@@ -25,3 +25,19 @@
 .theme-toggle:active {
   transform: scale(0.95);
 }
+
+/* Inline theme toggle variant for headers */
+.theme-toggle--inline {
+  position: static;
+  width: 36px;
+  height: 36px;
+  border-color: var(--border);
+  box-shadow: none;
+  background: transparent;
+}
+
+.theme-toggle--inline:hover {
+  background: var(--border);
+  transform: scale(1.05);
+}
+

@@ -25,7 +25,7 @@ function applyTheme(theme) {
  * persists changes to localStorage, and drives the `data-theme` attribute on
  * `<html>` which the CSS variable system in index.css responds to.
  */
-export default function ThemeToggle() {
+export default function ThemeToggle({ inline = false }) {
   const [theme, setTheme] = useState(() => {
     const t = getInitialTheme();
     applyTheme(t);
@@ -40,11 +40,12 @@ export default function ThemeToggle() {
 
   return (
     <button
-      className="theme-toggle"
+      className={`theme-toggle ${inline ? 'theme-toggle--inline' : ''}`}
       onClick={toggle}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
+
       {theme === 'dark' ? (
         /* Sun — click to go light */
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -76,50 +76,16 @@ export default function App() {
     );
   }
 
-  // ── Logged in: existing tabbed shell (to be restyled next) ──
+  // ── Logged in: render the ImportPage flow directly ──
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-
-      <nav className="app-nav">
-        <div className="app-nav__tabs">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={`app-nav__tab ${activeTab === tab.id ? 'app-nav__tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="app-nav__auth">
-          <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleFetchProfile}>
-            {profile ? `✓ ${profile.display_name}` : 'Verify token'}
-          </button>
-          <button className="app-nav__auth-btn app-nav__auth-btn--ghost" onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
-      </nav>
-
-      <main>
-        {activeTab === 'import'   && (
-          <ImportPage
-            isLoggedIn={true}
-            profile={profile}
-            onLogout={handleLogout}
-          />
-        )}
-        {activeTab === 'parser'   && <SongsInput />}
-        {activeTab === 'resolver' && <ResolverPlayground isLoggedIn={true} />}
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <ImportPage
+          isLoggedIn={true}
+          profile={profile}
+          onLogout={handleLogout}
+        />
       </main>
-
-      {profile && (
-        <pre style={{ textAlign: 'left', display: 'inline-block', margin: '1rem 40px', fontSize: 12 }}>
-          {JSON.stringify(profile, null, 2)}
-        </pre>
-      )}
     </div>
   );
-}
+}

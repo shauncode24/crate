@@ -1,4 +1,5 @@
 import './TopNav.css';
+import ThemeToggle from '../ui/ThemeToggle.jsx';
 
 export default function TopNav({ displayName = 'User', onLogout }) {
   return (
@@ -10,7 +11,10 @@ export default function TopNav({ displayName = 'User', onLogout }) {
         </div>
 
         <div className="topnav__right">
+          <ThemeToggle inline={true} />
+          
           <div className="topnav__user">
+
             <div className="topnav__avatar">{displayName?.charAt(0) || 'U'}</div>
             <span className="topnav__username">{displayName}</span>
           </div>

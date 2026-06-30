@@ -2,15 +2,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 48px;
+  gap: 12px;
+  margin-bottom: 32px;
 }
 
 .step-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 8px;
   overflow-x: auto;
+  padding: 4px;
 }
 
 .step-breadcrumb__group {
@@ -19,54 +20,60 @@
 }
 
 .step-pill {
-  height: 32px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 20px;
   border-radius: var(--radius-full);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
   border: none;
-  background: transparent;
-  color: var(--text);
+  background: var(--border);
+  color: var(--text-muted);
   cursor: not-allowed;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .step-pill--done {
-  background: var(--border);
+  background: var(--bg-elevated);
   color: var(--text-h);
+  border: 1px solid var(--border);
   cursor: pointer;
 }
 
 .step-pill--done:hover {
-  background: var(--text-muted);
-  color: #fff;
+  background: var(--text-h);
+  color: var(--bg-elevated);
+  border-color: var(--text-h);
 }
 
 .step-pill--active {
   background: var(--text-h);
-  color: #fff;
+  color: var(--bg);
+  font-weight: 700;
   cursor: default;
+  box-shadow: var(--shadow-sm);
 }
 
+/* Hide breadcrumb separators for a cleaner layout matching mockup */
 .step-breadcrumb__sep {
-  width: 32px;
-  height: 2px;
-  background: var(--border);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
+  display: none;
 }
 
 .step-breadcrumb__reset {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
   background: none;
   border: none;
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
   transition: color 0.15s;
 }
 
 .step-breadcrumb__reset:hover {
   color: var(--text-h);
-}
+}
