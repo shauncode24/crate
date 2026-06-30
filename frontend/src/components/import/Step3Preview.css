@@ -1,73 +1,85 @@
+/* ==========================================================================
+   Step3Preview.css — Playlist Naming Panel (Confirm Card)
+   ========================================================================== */
+
 .step3-naming {
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 24px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 40px 0;
+  box-sizing: border-box;
 }
 
 .step3-naming__card {
-  padding: 20px 22px;
-  background: rgba(139, 92, 246, 0.06);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: var(--radius-md);
-  margin-bottom: 16px;
-}
-
-.step3-naming__head {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 36px 40px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.step3-naming__sparkle {
-  font-size: 20px;
-  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
 }
 
 .step3-naming__title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   color: var(--text-h);
+  text-align: center;
+  margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .step3-naming__subtitle {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
-  font-family: var(--mono);
-  margin-top: 2px;
+  text-align: center;
+  margin: -16px 0 8px 0;
+  line-height: 1.4;
 }
 
 .step3-naming__fields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
 }
 
 .step3-naming__field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .step3-naming__label {
-  font-size: 11px;
-  font-family: var(--mono);
-  color: var(--text-muted);
-  letter-spacing: 0.06em;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
 }
 
 .step3-naming__input {
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(139, 92, 246, 0.35);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
   background: var(--bg);
   color: var(--text-h);
-  font: 14px/1.4 var(--sans);
+  font: 14.5px/1.4 var(--sans);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
   box-sizing: border-box;
+}
+
+.step3-naming__input:focus {
+  border-color: var(--text-h);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
+}
+
+html[data-theme='dark'] .step3-naming__input:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
 }
 
 .step3-naming__input--name {
@@ -75,53 +87,84 @@
   font-weight: 700;
 }
 
-.step3-naming__input:focus {
-  border-color: rgba(139, 92, 246, 0.7);
+.step3-naming__input--desc {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .step3-naming__hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
-  font-family: var(--mono);
-  margin: 0;
+  text-align: center;
+  margin: 4px 0 0 0;
+  line-height: 1.4;
 }
 
+/* Actions Buttons Row */
 .step3-naming__actions {
   display: flex;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
 }
 
 .step3-naming__back {
   flex: 1;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border);
   background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
 }
 
 .step3-naming__back:hover {
+  background: var(--border);
   border-color: var(--text-h);
 }
 
 .step3-naming__finalize {
-  flex: 2;
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
+  flex: 1.3;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
   border: none;
   background: var(--brand);
-  color: #fff;
-  font-size: 13px;
+  color: #ffffff;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s, transform 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.15);
+  text-align: center;
 }
 
 .step3-naming__finalize:hover {
   background: var(--brand-hover);
-  transform: scale(1.02);
+  box-shadow: 0 6px 16px rgba(29, 185, 84, 0.25);
+  transform: translateY(-1px);
+}
+
+.step3-naming__finalize:active {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 580px) {
+  .step3-naming__card {
+    padding: 24px 20px;
+    border-radius: var(--radius-md);
+  }
+  
+  .step3-naming__actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+  
+  .step3-naming__back, .step3-naming__finalize {
+    width: 100%;
+  }
 }
