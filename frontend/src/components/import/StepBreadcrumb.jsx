@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import './StepBreadcrumb.css';
 
 const STEPS = [
@@ -20,7 +21,7 @@ export default function StepBreadcrumb({ current, done = [], onJump, onReset }) 
           const isActive = step.id === current;
           const isClickable = isDone && onJump;
           return (
-            <span key={step.id} className="step-breadcrumb__group">
+            <Fragment key={step.id}>
               <button
                 type="button"
                 onClick={() => isClickable && onJump(step.id)}
@@ -30,7 +31,7 @@ export default function StepBreadcrumb({ current, done = [], onJump, onReset }) 
                 {step.label}
               </button>
               {idx < STEPS.length - 1 && <span className="step-breadcrumb__sep" aria-hidden="true" />}
-            </span>
+            </Fragment>
           );
         })}
       </nav>

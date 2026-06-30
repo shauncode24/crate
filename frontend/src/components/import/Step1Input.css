@@ -139,7 +139,7 @@ html[data-theme='dark'] .step1__textarea::-webkit-scrollbar-thumb:hover {
 .step1__actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 12px;
 }
 
@@ -190,4 +190,37 @@ html[data-theme='dark'] .step1__textarea::-webkit-scrollbar-thumb:hover {
   font-weight: 700;
   color: var(--danger);
   margin: 0;
+}
+
+@media (max-width: 500px) {
+  .step1__form-card {
+    padding: 16px;
+    gap: 16px;
+  }
+  .step1__title {
+    font-size: 22px;
+  }
+  .step1__subtitle {
+    font-size: 13.5px;
+  }
+  .step1__textarea {
+    min-height: 200px;
+    padding: 12px;
+    font-size: 14px;
+  }
+  .step1__shortcut-tip {
+    display: none;
+  }
+  .step1__counter-row {
+    justify-content: flex-end;
+  }
+  .step1__actions {
+    align-items: stretch; /* spans CTA button to full width */
+    width: 100%;
+  }
+  .step1__submit {
+    width: 100%;
+    height: 44px;
+    font-size: 14px;
+  }
 }

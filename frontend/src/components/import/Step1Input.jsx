@@ -47,9 +47,9 @@ export default function Step1Input({ onExtracted }) {
     <div className="step1__container">
       <div className="step1__form-card">
         <div className="step1__intro">
-          <h2 className="step1__title">Paste your tracks</h2>
+          <h2 className="step1__title">Got a list of songs?</h2>
           <p className="step1__subtitle">
-            Paste raw text containing songs from lists, articles, or setlists.
+            Paste it below. Works with messy text, numbered lists, even rambling paragraphs.
           </p>
         </div>
 
@@ -79,7 +79,7 @@ export default function Step1Input({ onExtracted }) {
             disabled={!rawInput.trim() || rawInput.length > 20000 || status === 'loading'}
           >
             {status === 'loading' && <span className="step1__spinner" aria-hidden="true" />}
-            {status === 'loading' ? 'Extracting…' : 'Find songs'}
+            {status === 'loading' ? 'Extracting…' : 'Extract Songs'}
           </button>
           {status === 'error' && <p className="step1__error">{error}</p>}
         </div>

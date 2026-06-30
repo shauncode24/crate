@@ -9,14 +9,9 @@
 .step-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   overflow-x: auto;
   padding: 4px;
-}
-
-.step-breadcrumb__group {
-  display: flex;
-  align-items: center;
 }
 
 .step-pill {
@@ -63,7 +58,7 @@
   width: 28px;
   height: 2px;
   background: var(--border);
-  margin: 0 4px;
+  margin: 0;
   flex-shrink: 0;
 }
 
@@ -81,4 +76,18 @@
 
 .step-breadcrumb__reset:hover {
   color: var(--text-h);
+}
+
+@media (max-width: 500px) {
+  .step-breadcrumb {
+    gap: 6px;
+  }
+  .step-pill {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .step-breadcrumb__sep {
+    width: 16px;
+  }
 }
