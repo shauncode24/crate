@@ -76,10 +76,15 @@ export default function SummaryStickyBar({
       </div>
       
       {reviewPendingCount > 0 && (
-        <div className="drp-sticky-summary__warning-hint">
-          Resolve all review items below to unlock the import button.
+        <div className="drp-sticky-summary__warning-banner">
+          <svg className="drp-sticky-summary__warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Resolve all review items below to unlock the import action.</span>
         </div>
       )}
     </div>
+
   );
 }

@@ -118,6 +118,10 @@ export default function DryRunPreview({
     setReviewState((prev) => {
       const next = { ...prev };
       reviewItems.forEach(({ match, originalIndex }) => {
+        // Skip duplicate or already skipped items
+        const isSkippedOrDuplicate = prev[originalIndex]?.skipped || match.isDuplicate;
+        if (isSkippedOrDuplicate) return;
+
         const options = match.topCandidates?.length
           ? match.topCandidates
           : (match.allCandidates ?? []).slice(0, 3);
@@ -132,6 +136,7 @@ export default function DryRunPreview({
       return next;
     });
   }, [reviewItems]);
+
 
   const reviewPendingCount = reviewItems.filter(
     ({ originalIndex }) => !reviewState[originalIndex]?.resolved

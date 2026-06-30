@@ -22,33 +22,40 @@ function CandidateOption({ candidate, isSelected, exactTrackIds, nearDuplicateTr
   return (
     <button
       type="button"
-      className={`review-candidate-card ${isSelected ? 'review-candidate-card--selected' : ''}`}
+      className={`review-option-card ${isSelected ? 'review-option-card--selected' : ''}`}
       onClick={() => onSelect(candidate)}
     >
+      <span className="review-option-card__radio-wrapper">
+        <span className="review-option-card__radio-custom">
+          {isSelected && <span className="review-option-card__radio-dot" />}
+        </span>
+      </span>
+
       <Thumb url={candidate.imageUrl} />
-      <div className="review-candidate-card__info">
-        <span className="review-candidate-card__title">
+
+      <div className="review-option-card__info">
+        <span className="review-option-card__title">
           {candidate.title}
           {isExactDup && <span className="review-duplicate-badge review-duplicate-badge--danger">Already in playlist</span>}
           {nearDupWarning && <span className="review-duplicate-badge review-duplicate-badge--warning">Already in playlist as "{nearDupWarning}"</span>}
         </span>
-        <span className="review-candidate-card__meta">
-          {candidate.artists || candidate.artist}
+        <span className="review-option-card__artist">
+          {candidate.artists || candidate.artist || 'Unknown Artist'}
         </span>
-        <span className="review-candidate-card__submeta">
-          {candidate.album}{candidate.releaseYear ? ` (${candidate.releaseYear})` : ''}
-          {candidate.durationMs ? ` · ${ms(candidate.durationMs)}` : ''}
-        </span>
+        {candidate.album && (
+          <span className="review-option-card__album">
+            {candidate.album}{candidate.releaseYear ? ` (${candidate.releaseYear})` : ''}{candidate.durationMs ? ` · ${ms(candidate.durationMs)}` : ''}
+          </span>
+        )}
       </div>
-      <div className="review-candidate-card__aside">
-        <span className="review-candidate-card__score">{candidate.score?.final ?? '—'}</span>
-        <span className="review-candidate-card__radio">
-          <span className="review-candidate-card__radio-inner" />
-        </span>
-      </div>
+
+      <span className="review-option-card__score" title="Match confidence score">
+        {candidate.score?.final ?? '—'}
+      </span>
     </button>
   );
 }
+
 
 // Subcomponent: Inline picker for alternate matches
 function InlineAlternatesPicker({

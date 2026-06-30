@@ -1,11 +1,11 @@
 /* ==========================================================================
-   dryRunPreview.css — Phase 9 & 10 UI Restructure
+   dryRunPreview.css — Phase 9 & 10 UI Restructure (Optimized Paddings)
    ========================================================================== */
 
 .drp {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px; /* Reduced gap from 24px */
   width: 100%;
 }
 
@@ -19,9 +19,9 @@
   z-index: 40;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  padding: 16px 24px;
+  border-radius: var(--radius-md); /* Reduced border radius */
+  box-shadow: var(--shadow-sm);
+  padding: 10px 18px; /* Reduced from 16px 24px */
   transition: all 0.25s ease;
 }
 
@@ -30,27 +30,27 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .drp-sticky-summary__counts {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px; /* Reduced from 20px */
   flex-wrap: wrap;
 }
 
 .drp-sticky-count {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13.5px;
   font-weight: 500;
 }
 
 .drp-sticky-count__icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -68,35 +68,35 @@
 .drp-sticky-summary__actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   margin-left: auto;
 }
 
 .drp-sticky-summary__context {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-muted);
 }
 
 .drp-sticky-btn {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
-  padding: 12px 24px;
+  padding: 10px 20px; /* Reduced padding */
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .drp-sticky-btn--enabled {
   background: var(--brand);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.2);
+  box-shadow: 0 3px 8px rgba(29, 185, 84, 0.15);
 }
 
 .drp-sticky-btn--enabled:hover {
   background: var(--brand-hover);
-  box-shadow: 0 6px 16px rgba(29, 185, 84, 0.3);
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.25);
   transform: translateY(-1px);
 }
 
@@ -106,13 +106,30 @@
   cursor: not-allowed;
 }
 
-.drp-sticky-summary__warning-hint {
+/* Redesigned Warning Banner */
+.drp-sticky-summary__warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--warning-bg);
+  border: 1px solid rgba(255, 164, 43, 0.15);
+  border-radius: var(--radius-sm);
+  color: #b45309;
   font-size: 12px;
   font-weight: 600;
+}
+
+html[data-theme='dark'] .drp-sticky-summary__warning-banner {
   color: var(--warning);
-  text-align: right;
-  margin-top: 8px;
+}
+
+.drp-sticky-summary__warning-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -122,7 +139,7 @@
 .collapsible-section {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md); /* Reduced border radius */
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -132,13 +149,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 32px;
+  padding: 16px 24px; /* Reduced from 24px 32px */
   cursor: pointer;
   user-select: none;
 }
 
 .collapsible-section__header:hover {
-  background: rgba(0, 0, 0, 0.01);
+  background: rgba(0, 0, 0, 0.015);
 }
 
 html[data-theme='dark'] .collapsible-section__header:hover {
@@ -148,12 +165,12 @@ html[data-theme='dark'] .collapsible-section__header:hover {
 .collapsible-section__title-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .collapsible-section__icon-wrapper {
-  width: 32px;
-  height: 32px;
+  width: 28px; /* Reduced from 32px */
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -161,26 +178,26 @@ html[data-theme='dark'] .collapsible-section__header:hover {
 }
 
 .collapsible-section__icon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
 }
 
 .collapsible-section__title {
-  font-size: 18px;
+  font-size: 16px; /* Reduced from 18px */
   font-weight: 700;
   color: var(--text-h);
 }
 
 .collapsible-section__badge {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: var(--radius-full);
 }
 
 .collapsible-section__chevron {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: var(--text-muted);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -191,7 +208,7 @@ html[data-theme='dark'] .collapsible-section__header:hover {
 
 .collapsible-section__body {
   border-top: 1px solid var(--border);
-  padding: 32px;
+  padding: 20px 24px; /* Reduced from 32px */
   background: var(--bg);
 }
 
@@ -234,56 +251,57 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
 .ready-tracks-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px; /* Reduced gap */
 }
 
 .ready-track-item {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px; /* Reduced padding from 16px 20px */
   transition: all 0.2s ease;
 }
 
 .ready-track-item__main {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .ready-track-item__info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   flex: 1;
 }
 
 .ready-track-item__title {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text-h);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  line-height: 1.4;
 }
 
 .ready-track-item__subtext {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-muted);
 }
 
 .ready-track-item__meta {
   margin-left: auto;
-  margin-right: 24px;
+  margin-right: 16px;
 }
 
 .ready-track-item__score {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   background: var(--border);
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: var(--radius-sm);
 }
 
@@ -291,12 +309,12 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 4px;
-  padding: 8px 12px;
+  text-underline-offset: 3px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   transition: all 0.15s ease;
 }
@@ -307,33 +325,33 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
 }
 
 .ready-track-item__expansion {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px dashed var(--border);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* Skipped States */
 .ready-track-item--skipped {
-  opacity: 0.6;
+  opacity: 0.65;
 }
 .ready-track-item__skipped {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 13.5px;
   width: 100%;
 }
 .ready-track-item__skipped-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--danger);
   background: var(--danger-bg);
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 .ready-track-item__skipped-title {
   color: var(--text-muted);
@@ -342,10 +360,10 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
 
 /* Badges */
 .ready-track-item__badge {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 .ready-track-item__badge--override {
   background: rgba(29, 185, 84, 0.1);
@@ -357,21 +375,21 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
 }
 
 /* --------------------------------------------------------------------------
-   4. Option Cards & Radio Options
+   4. Option Cards & Radio Options (Unified for alternates & review options)
    -------------------------------------------------------------------------- */
 
 .review-alternates-picker {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
+  border-radius: var(--radius-sm);
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .review-alternates-picker__label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-h);
   text-transform: uppercase;
@@ -381,13 +399,13 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
 .review-alternates-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Music Thumbnail */
 .review-thumb {
-  width: 44px;
-  height: 44px;
+  width: 36px; /* Reduced from 44px */
+  height: 36px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
@@ -396,25 +414,30 @@ html[data-theme='dark'] .collapsible-section--missing .collapsible-section__icon
   background: var(--border);
   color: var(--text-muted);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Candidate Radio Option Card */
+/* Unified Option Card (Resets Button/Label style to look identical) */
 .review-option-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px; /* Reduced from 16px */
+  padding: 10px 14px; /* Reduced padding */
   border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
   position: relative;
   user-select: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  box-sizing: border-box;
 }
 
 .review-option-card:hover {
@@ -430,11 +453,11 @@ html[data-theme='dark'] .review-option-card--selected {
   background: rgba(29, 185, 84, 0.04);
 }
 
-/* Custom Radio Dot */
+/* Custom Radio Dot (16px) */
 .review-option-card__radio-wrapper {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -449,8 +472,8 @@ html[data-theme='dark'] .review-option-card--selected {
   position: absolute;
   top: 0;
   left: 0;
-  height: 20px;
-  width: 20px;
+  height: 16px;
+  width: 16px;
   background-color: var(--bg-elevated);
   border: 2px solid var(--border);
   border-radius: 50%;
@@ -461,33 +484,44 @@ html[data-theme='dark'] .review-option-card--selected {
   border-color: var(--brand);
 }
 
-.review-option-card__radio-custom::after {
+/* Green dot for input selection */
+.review-option-card__radio-input:checked ~ .review-option-card__radio-custom::after {
   content: "";
   position: absolute;
-  display: none;
-  top: 4px;
-  left: 4px;
-  width: 8px;
-  height: 8px;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--brand);
 }
 
-.review-option-card__radio-input:checked ~ .review-option-card__radio-custom::after {
-  display: block;
+/* Green dot for custom button selection in Ready section alternates list */
+.review-option-card__radio-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
 }
 
-/* Card details */
+.review-option-card--selected .review-option-card__radio-custom {
+  border-color: var(--brand);
+}
+
+/* Card details styling */
 .review-option-card__info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
 .review-option-card__title {
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-h);
   overflow: hidden;
@@ -500,9 +534,9 @@ html[data-theme='dark'] .review-option-card--selected {
 }
 
 .review-duplicate-badge {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 1px 4px;
   border-radius: 3px;
   text-transform: uppercase;
 }
@@ -521,37 +555,37 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
 }
 
 .review-option-card__artist {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-muted);
 }
 
 .review-option-card__album {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text-muted);
 }
 
 .review-option-card__score {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   background: var(--border);
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: var(--radius-sm);
-  margin-right: 12px;
+  margin-right: 4px;
 }
 
-/* Manual Trigger Overrides */
+/* Manual Trigger Card */
 .review-option-card--manual-trigger {
-  padding: 14px 16px;
+  padding: 10px 14px;
 }
 .review-option-card__manual-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-h);
 }
 
-/* Actions footer */
+/* Actions footer link */
 .review-alternates-actions {
   display: flex;
   justify-content: space-between;
@@ -563,12 +597,12 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
-  padding: 4px 8px;
+  padding: 4px 6px;
   transition: color 0.15s;
 }
 
@@ -585,9 +619,9 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
   background: var(--border);
   border: none;
   color: var(--text-h);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: opacity 0.15s;
@@ -604,19 +638,24 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
 .review-toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 20px;
+  margin-bottom: 12px; /* Reduced from 20px */
 }
 
+/* Redesigned Select All button */
 .review-toolbar-btn {
-  background: var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
   color: var(--text-h);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 8px 18px;
+  padding: 6px 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
 }
 
 .review-toolbar-btn:hover {
@@ -625,15 +664,21 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
   border-color: var(--text-h);
 }
 
+.review-toolbar-btn__icon {
+  width: 13px;
+  height: 13px;
+  color: var(--warning);
+}
+
 .review-tracks-list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px; /* Reduced gap from 24px */
 }
 
 .song-review-block {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md); /* Reduced radius */
   background: var(--bg-elevated);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -644,28 +689,28 @@ html[data-theme='dark'] .review-duplicate-badge--warning {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 10px 16px; /* Reduced padding from 16px 20px */
   background: var(--border);
   border-bottom: 1px solid var(--border);
 }
 
 .song-review-block__title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-h);
 }
 
 .song-review-block__artist-header {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-muted);
 }
 
 /* Status Pill */
 .song-review-block__status-badge {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
   letter-spacing: 0.5px;
 }
@@ -692,27 +737,27 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 }
 
 .song-review-block__body {
-  padding: 20px;
+  padding: 14px 16px; /* Reduced from 20px */
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px; /* Reduced from 16px */
 }
 
 .song-review-options-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Expanded Manual Search form block */
 .review-manual-search-box {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px; /* Reduced padding */
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .review-manual-search-box__row {
@@ -722,12 +767,12 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 
 .review-manual-input {
   flex: 1;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-h);
-  font-size: 13.5px;
+  font-size: 13px;
   font-family: var(--sans);
   outline: none;
   transition: border-color 0.15s ease;
@@ -741,8 +786,8 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
   background: var(--text-h);
   color: var(--bg-elevated);
   border: none;
-  padding: 10px 16px;
-  font-size: 13px;
+  padding: 8px 14px;
+  font-size: 12.5px;
   font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -759,12 +804,12 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 }
 
 .review-manual-error {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--danger);
 }
 
 .review-manual-notice {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--brand);
 }
 
@@ -772,19 +817,19 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 .song-review-block__actions {
   display: flex;
   justify-content: center;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .review-skip-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 4px;
-  padding: 6px 12px;
+  text-underline-offset: 3px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
   transition: all 0.15s ease;
 }
@@ -803,8 +848,8 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 /* Review Track Footer Info */
 .review-section-footer {
   text-align: center;
-  padding: 16px;
-  font-size: 14px;
+  padding: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -816,15 +861,15 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 .missing-tracks-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .missing-track-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1.5px solid var(--border);
+  padding: 10px 14px; /* Reduced padding from 12px 16px */
+  border-bottom: 1px solid var(--border);
 }
 
 .missing-track-item:last-child {
@@ -832,14 +877,14 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 }
 
 .missing-track-item__index {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-muted);
-  width: 20px;
+  width: 16px;
 }
 
 .missing-track-item__info {
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .missing-track-item__title {
@@ -858,7 +903,7 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
 @media (max-width: 768px) {
   .drp-sticky-summary {
     position: static; /* Unstick on mobile screen sizes to conserve space */
-    padding: 16px;
+    padding: 12px;
   }
   
   .drp-sticky-summary__inner {
@@ -872,11 +917,11 @@ html[data-theme='dark'] .song-review-block__status-badge--skipped {
   }
 
   .collapsible-section__header {
-    padding: 16px 20px;
+    padding: 12px 16px;
   }
 
   .collapsible-section__body {
-    padding: 16px;
+    padding: 12px 16px;
   }
 
   .ready-track-item__main {
